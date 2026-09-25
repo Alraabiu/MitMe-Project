@@ -1,0 +1,1 @@
+Reusable web components live here. The current app keeps the core shell and meeting workspace together in `main.tsx` so the first runnable build has a single entry point; split feature components here as the product grows.

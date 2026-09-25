@@ -1,0 +1,2 @@
+import mongoose from 'mongoose';
+const schema=new mongoose.Schema({type:{type:String,enum:['direct','group'],default:'direct'},title:String,avatarUrl:String,description:String,createdBy:{type:mongoose.Schema.Types.ObjectId,ref:'User'},members:[{type:mongoose.Schema.Types.ObjectId,ref:'User'}],admins:[{type:mongoose.Schema.Types.ObjectId,ref:'User'}],lastMessageAt:Date},{timestamps:true});schema.index({members:1,lastMessageAt:-1});export default mongoose.model('Conversation',schema);
