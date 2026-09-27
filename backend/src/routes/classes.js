@@ -8,6 +8,9 @@ import {
   leaveClass,
   removeStudent,
   archiveClass,
+  startClassMeeting,
+  getActiveClassMeeting,
+  endClassMeeting,
 } from '../controllers/classes.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -37,6 +40,19 @@ r.post('/join', requireRole(['student']), validate(joinBody), joinClass);
 r.get('/:id', getClass);
 
 r.post('/:id/leave', requireRole(['student']), leaveClass);
+
+/* ─── Live class sessions ─── */
+r.get('/:id/meeting', getActiveClassMeeting);
+r.post(
+  '/:id/meeting',
+  requireRole(['teacher', 'admin']),
+  startClassMeeting
+);
+r.post(
+  '/:id/meeting/end',
+  requireRole(['teacher', 'admin']),
+  endClassMeeting
+);
 
 r.delete(
   '/:id/students/:studentId',

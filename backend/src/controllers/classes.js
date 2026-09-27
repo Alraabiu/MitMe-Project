@@ -1,6 +1,10 @@
 ﻿import Class from '../models/Class.js';
+import Meeting from '../models/Meeting.js';
+import MeetingParticipant from '../models/MeetingParticipant.js';
+import Whiteboard from '../models/Whiteboard.js';
 import { asyncHandler } from '../middleware/error.js';
 import { generateClassCode } from '../utils/classCode.js';
+import { createMeetingCode } from '../utils/meeting.js';
 
 const toId = (v) => String(v?._id || v || '');
 
@@ -28,6 +32,18 @@ const canManage = (classDoc, user) => {
   if (isTeacher(user)) return toId(classDoc.teacher) === toId(user._id);
   return false;
 };
+
+const newMeetingCode = async () => {
+  for (let i = 0; i < 5; i += 1) {
+    const c = createMeetingCode();
+    if (!(await Meeting.exists({ code: c }))) return c;
+  }
+  throw new Error('Could not allocate a unique meeting code');
+};
+
+/* =========================================================
+   CLASS CRUD
+   ========================================================= */
 
 export const createClass = asyncHandler(async (req, res) => {
   if (!isTeacher(req.user) && !isAdmin(req.user)) {
@@ -75,7 +91,25 @@ export const listClasses = asyncHandler(async (req, res) => {
     .populate('teacher', 'displayName username avatarUrl role')
     .lean();
 
-  return res.json({ success: true, data: { classes } });
+  // Attach active meeting flag
+  const classIds = classes.map((c) => c._id);
+  const liveMeetings = await Meeting.find({
+    classId: { $in: classIds },
+    status: 'live',
+  })
+    .select('classId code')
+    .lean();
+
+  const liveMap = {};
+  for (const m of liveMeetings) liveMap[String(m.classId)] = m.code;
+
+  const withLive = classes.map((c) => ({
+    ...c,
+    activeMeetingCode: liveMap[String(c._id)] || null,
+    isLive: Boolean(liveMap[String(c._id)]),
+  }));
+
+  return res.json({ success: true, data: { classes: withLive } });
 });
 
 export const getClass = asyncHandler(async (req, res) => {
@@ -186,4 +220,95 @@ export const archiveClass = asyncHandler(async (req, res) => {
   await classDoc.save();
 
   return res.json({ success: true, message: 'Class archived' });
+});
+
+/* =========================================================
+   LIVE CLASS SESSIONS
+   ========================================================= */
+
+export const startClassMeeting = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) {
+    return res.status(404).json({ message: 'Class not found' });
+  }
+  if (!canManage(classDoc, req.user)) {
+    return res.status(403).json({
+      message: 'Only the class teacher can start a live session',
+    });
+  }
+
+  // End any stale live meetings for this class
+  await Meeting.updateMany(
+    { classId: classDoc._id, status: 'live' },
+    { status: 'ended' }
+  );
+
+  const code = await newMeetingCode();
+
+  const meeting = await Meeting.create({
+    title: classDoc.name + ' - Live Session',
+    description: classDoc.description || '',
+    host: req.user._id,
+    code,
+    classId: classDoc._id,
+    status: 'live',
+    waitingRoom: false,
+    whiteboardEnabled: true,
+    chatEnabled: true,
+    screenShareEnabled: true,
+    participants: [req.user._id],
+  });
+
+  await MeetingParticipant.create({
+    meeting: meeting._id,
+    user: req.user._id,
+    role: 'host',
+    joinedAt: new Date(),
+  });
+
+  await Whiteboard.create({
+    meeting: meeting._id,
+    pages: [{ name: 'Page 1', events: [] }],
+    activePage: 'Page 1',
+  });
+
+  await meeting.populate('host', 'displayName username avatarUrl');
+
+  return res.status(201).json({ success: true, data: { meeting } });
+});
+
+export const getActiveClassMeeting = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) {
+    return res.status(404).json({ message: 'Class not found' });
+  }
+  if (!canView(classDoc, req.user)) {
+    return res.status(403).json({ message: 'You do not have access to this class' });
+  }
+
+  const meeting = await Meeting.findOne({
+    classId: classDoc._id,
+    status: 'live',
+  })
+    .sort({ createdAt: -1 })
+    .populate('host', 'displayName username avatarUrl');
+
+  return res.json({ success: true, data: { meeting: meeting || null } });
+});
+
+export const endClassMeeting = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) {
+    return res.status(404).json({ message: 'Class not found' });
+  }
+  if (!canManage(classDoc, req.user)) {
+    return res.status(403).json({ message: 'Only the teacher can end the session' });
+  }
+
+  await Meeting.updateMany(
+    { classId: classDoc._id, status: 'live' },
+    { status: 'ended' }
+  );
+
+  return res.json({ success: true, message: 'Session ended' });
 });

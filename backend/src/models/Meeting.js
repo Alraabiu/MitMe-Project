@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 
 const schema = new mongoose.Schema(
   {
@@ -22,11 +22,20 @@ const schema = new mongoose.Schema(
     screenShareEnabled: { type: Boolean, default: true },
     participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     coHosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+
+    // NEW: optional class link for live classroom sessions
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true }
 );
 
 schema.index({ host: 1, scheduledStart: -1 });
 schema.index({ participants: 1 });
+schema.index({ classId: 1, status: 1 });
 
 export default mongoose.model('Meeting', schema);
