@@ -51,29 +51,36 @@ export async function removeStudent(
 }
 
 /**
+ * Public HTTPS base for share links.
+ * This is the SAME domain your backend runs on.
+ */
+const PUBLIC_WEB_BASE = 'https://mitme-project.onrender.com';
+
+/**
  * Build a shareable link for a class.
- * Mobile uses a deep link with custom scheme (mitme://).
- * When a student taps it, the app opens and auto-joins.
+ *
+ * Uses HTTPS (NOT mitme://) so it's clickable in WhatsApp, SMS, email, etc.
+ * Android App Links open the app directly when installed.
+ * If the app isn't installed, the URL falls back to a web page.
  */
 export function buildClassShareLink(code: string): string {
-  return `mitme://join/${code}`;
+  return `${PUBLIC_WEB_BASE}/join/${code.toUpperCase()}`;
 }
 
 /**
- * Build a friendly share message for the native share sheet.
+ * Friendly share message for the native share sheet.
  */
 export function buildClassShareMessage(
   className: string,
   code: string
 ): string {
+  const link = buildClassShareLink(code);
   return [
     `You're invited to join "${className}" on MitMe.`,
     '',
-    `Class code: ${code}`,
+    `Tap this link to join:`,
+    link,
     '',
-    `Or tap this link to join instantly:`,
-    buildClassShareLink(code),
-    '',
-    'If the link does not open the app, install MitMe and enter the code above.',
+    `Or enter the class code manually: ${code}`,
   ].join('\n');
 }
