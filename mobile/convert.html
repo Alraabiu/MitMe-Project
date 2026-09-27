@@ -1,0 +1,35 @@
+﻿<!DOCTYPE html>
+<html>
+<head><title>SVG to PNG</title></head>
+<body style="font-family: sans-serif; padding: 20px;">
+  <h2>SVG → PNG converter</h2>
+  <p>Click each button to download the PNG.</p>
+  <button onclick="convert('icon.svg', 1024, 1024, 'icon.png')">Download icon.png</button>
+  <br><br>
+  <button onclick="convert('splash.svg', 1284, 2778, 'splash.png')">Download splash.png</button>
+  <br><br>
+  <button onclick="convert('icon.svg', 1024, 1024, 'adaptive-icon.png')">Download adaptive-icon.png</button>
+  <br><br>
+  <button onclick="convert('icon.svg', 196, 196, 'favicon.png')">Download favicon.png</button>
+
+  <script>
+    async function convert(svgUrl, w, h, out) {
+      const svg = await fetch(svgUrl).then(r => r.text());
+      const blob = new Blob([svg], {type: 'image/svg+xml'});
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = out;
+        a.click();
+      };
+      img.src = url;
+    }
+  </script>
+</body>
+</html>

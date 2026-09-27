@@ -1,1 +1,104 @@
-{"expo":{"name":"MitMe","slug":"mitme","version":"1.0.0","orientation":"portrait","scheme":"mitme","userInterfaceStyle":"automatic","plugins":["expo-router",["expo-camera",{"cameraPermission":"MitMe uses your camera for meetings."}],"expo-notifications"],"ios":{"supportsTablet":true,"bundleIdentifier":"com.mitme.app"},"android":{"package":"com.mitme.app","permissions":["CAMERA","RECORD_AUDIO","POST_NOTIFICATIONS"]},"web":{"bundler":"metro"}}}
+﻿{
+  "expo": {
+    "name": "MitMe",
+    "slug": "mitme",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "scheme": "mitme",
+    "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#4B24A8"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "MitMe uses your camera for video meetings."
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "MitMe uses your microphone for meetings and voice chat."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MitMe needs access to your photos to set your avatar."
+        }
+      ],
+      "expo-notifications",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_YOUR_REVERSED_IOS_CLIENT_ID"
+        }
+      ]
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mitme.app",
+      "buildNumber": "2",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSCameraUsageDescription": "MitMe uses your camera for video meetings.",
+        "NSMicrophoneUsageDescription": "MitMe uses your microphone for meetings and voice chat.",
+        "NSPhotoLibraryUsageDescription": "MitMe needs access to your photos to set your avatar.",
+        "UIBackgroundModes": [
+          "remote-notification",
+          "audio"
+        ]
+      }
+    },
+    "android": {
+      "package": "com.mitme.app",
+      "versionCode": 2,
+      "googleServicesFile": "./google-services.json",
+      "usesCleartextTraffic": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#4B24A8"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "POST_NOTIFICATIONS",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO",
+        "VIBRATE",
+        "WAKE_LOCK",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "favicon": "./assets/favicon.png"
+    },
+    "notification": {
+      "icon": "./assets/notification-icon.png",
+      "color": "#4B24A8",
+      "androidMode": "default",
+      "androidCollapsedTitle": "MitMe"
+    },
+    "owner": "muhammadtechs",
+    "extra": {
+      "eas": {
+        "projectId": "16dfcd42-9dde-4baf-9207-b5339dbb416a"
+      }
+    }
+  }
+}

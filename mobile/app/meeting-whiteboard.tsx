@@ -1,0 +1,247 @@
+﻿import { useEffect, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
+import { ArrowLeft, Trash2 } from 'lucide-react-native';
+import { api } from '../src/services/api';
+import { useSocket } from '../src/hooks/useSocket';
+import { colors, spacing, radii, font, shadows } from '../src/theme';
+
+interface Stroke {
+  points: { x: number; y: number }[];
+}
+
+export default function WhiteboardScreen() {
+  const router = useRouter();
+  const { meetingId } = useLocalSearchParams<{ meetingId: string }>();
+  const socket = useSocket();
+
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
+  const [currentStroke, setCurrentStroke] = useState<Stroke | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pageId, setPageId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!meetingId) return;
+    api
+      .get<{
+        whiteboard: {
+          pages: { _id: string; events: { type: string; payload: any }[] }[];
+        };
+      }>(`/whiteboards/${meetingId}`)
+      .then((r) => {
+        const page = r.data.whiteboard.pages?.[0];
+        if (!page) return;
+        setPageId(page._id);
+        const loaded: Stroke[] = page.events
+          .filter((e) => e.type === 'stroke')
+          .map((e) => ({ points: e.payload?.points || [] }));
+        setStrokes(loaded);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [meetingId]);
+
+  useEffect(() => {
+    if (!socket || !meetingId) return;
+
+    const onEvent = (packet: { event: { type: string; payload: any } }) => {
+      if (packet.event.type !== 'stroke') return;
+      const points = packet.event.payload?.points || [];
+      if (points.length < 2) return;
+      setStrokes((prev) => [...prev, { points }]);
+    };
+
+    socket.on('whiteboard:event', onEvent);
+    return () => {
+      socket.off('whiteboard:event', onEvent);
+    };
+  }, [socket, meetingId]);
+
+  const saveStroke = async (points: { x: number; y: number }[]) => {
+    if (!meetingId || points.length < 2) return;
+    try {
+      await api.post(`/whiteboards/${meetingId}/events`, {
+        pageId: pageId || undefined,
+        type: 'stroke',
+        payload: { points },
+      });
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const toPath = (points: { x: number; y: number }[]) => {
+    if (points.length < 2) return '';
+    return points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`)
+      .join(' ');
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={colors.purple} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={s.safe}>
+      <View style={s.header}>
+        <Pressable style={s.backBtn} onPress={() => router.back()}>
+          <ArrowLeft size={22} color={colors.ink} />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={s.title}>Whiteboard</Text>
+          <Text style={s.sub}>{meetingId?.slice(-8)}</Text>
+        </View>
+        <Pressable
+          style={s.clearBtn}
+          onPress={() => {
+            setStrokes([]);
+            setCurrentStroke(null);
+          }}
+        >
+          <Trash2 size={18} color={colors.danger} />
+        </Pressable>
+      </View>
+
+      <View
+        style={s.canvasWrap}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderGrant={(e) => {
+          const { locationX, locationY } = e.nativeEvent;
+          setCurrentStroke({ points: [{ x: locationX, y: locationY }] });
+        }}
+        onResponderMove={(e) => {
+          if (!currentStroke) return;
+          const { locationX, locationY } = e.nativeEvent;
+          setCurrentStroke({
+            points: [...currentStroke.points, { x: locationX, y: locationY }],
+          });
+        }}
+        onResponderRelease={async () => {
+          if (!currentStroke || currentStroke.points.length < 2) {
+            setCurrentStroke(null);
+            return;
+          }
+          const finished = currentStroke;
+          setStrokes((prev) => [...prev, finished]);
+          setCurrentStroke(null);
+          await saveStroke(finished.points);
+        }}
+      >
+        <Svg style={s.svg}>
+          {strokes.map((stroke, i) => (
+            <Path
+              key={i}
+              d={toPath(stroke.points)}
+              stroke={colors.ink}
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {currentStroke && (
+            <Path
+              d={toPath(currentStroke.points)}
+              stroke={colors.purple}
+              strokeWidth={3}
+              fill="none"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+        </Svg>
+
+        {strokes.length === 0 && !currentStroke && (
+          <View style={s.hint}>
+            <Text style={s.hintText}>Draw with your finger</Text>
+            <Text style={s.hintSub}>
+              Strokes sync to everyone in the meeting
+            </Text>
+          </View>
+        )}
+      </View>
+
+      <Text style={s.footer}>
+        {strokes.length} {strokes.length === 1 ? 'stroke' : 'strokes'} · shared
+        with the meeting
+      </Text>
+    </SafeAreaView>
+  );
+}
+
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.bg },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  backBtn: { padding: spacing.xs },
+  title: { fontSize: font.lg, fontWeight: '800', color: colors.ink },
+  sub: { fontSize: font.sm, color: colors.muted, marginTop: 2 },
+  clearBtn: { padding: spacing.sm },
+  canvasWrap: {
+    flex: 1,
+    margin: spacing.md,
+    backgroundColor: '#fff',
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    position: 'relative',
+    ...shadows.card,
+  },
+  svg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  hint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hintText: {
+    fontSize: font.lg,
+    fontWeight: '800',
+    color: colors.muted,
+  },
+  hintSub: {
+    fontSize: font.sm,
+    color: colors.muted,
+    marginTop: 6,
+  },
+  footer: {
+    textAlign: 'center',
+    color: colors.muted,
+    fontSize: font.sm,
+    paddingBottom: spacing.md,
+  },
+});

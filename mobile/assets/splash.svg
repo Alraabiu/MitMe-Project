@@ -1,0 +1,37 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1284 2778" width="1284" height="2778">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4B24A8"/>
+      <stop offset="1" stop-color="#4B67E0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1284" height="2778" fill="url(#bg)"/>
+
+  <!-- Center logo mark -->
+  <g transform="translate(642, 1150) translate(-256, -256) scale(0.5)">
+    <circle cx="256" cy="240" r="86" fill="#FFFFFF"/>
+    <circle cx="768" cy="240" r="86" fill="#FFFFFF"/>
+    <rect x="226" y="240" width="60" height="380" rx="30" fill="#FFFFFF"/>
+    <rect x="738" y="240" width="60" height="380" rx="30" fill="#FFFFFF"/>
+    <path d="M 256 300 L 512 560 L 768 300"
+          stroke="#FFFFFF"
+          stroke-width="60"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="642" y="1700"
+        font-family="-apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="130" font-weight="900"
+        fill="#FFFFFF" text-anchor="middle"
+        letter-spacing="-2">MitMe</text>
+
+  <text x="642" y="1790"
+        font-family="-apple-system, 'Segoe UI', Roboto, sans-serif"
+        font-size="38" font-weight="600"
+        fill="#EDE7FF" text-anchor="middle"
+        letter-spacing="2">CONNECT. MEET. SHARE.</text>
+</svg>
