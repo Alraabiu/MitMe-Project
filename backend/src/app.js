@@ -17,6 +17,7 @@ import whiteboardRoutes from './routes/whiteboards.js';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 import classRoutes from './routes/classes.js';
+import joinRoutes from './routes/join.js';
 
 export const buildApp = () => {
   const app = express();
@@ -54,6 +55,8 @@ export const buildApp = () => {
   app.use(`${env.API_PREFIX}/notifications`, notificationRoutes);
   app.use(`${env.API_PREFIX}/admin`, adminRoutes);
   app.use(`${env.API_PREFIX}/classes`, classRoutes);
+
+  app.use('/join', joinRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
