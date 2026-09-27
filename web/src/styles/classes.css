@@ -1,0 +1,490 @@
+﻿/* =========================================================
+   Classes styles — MitMe
+   ========================================================= */
+
+.classesPage {
+  padding: 24px 28px 40px;
+  max-width: 1000px;
+}
+
+.classesHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.classesEyebrow {
+  color: var(--purple, #4B24A8);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.classesTitle {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #171717;
+}
+
+.classesSub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #777;
+}
+
+.classesActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.classesBtn {
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #4B24A8 0%, #4B67E0 100%);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.classesBtn:hover { opacity: 0.9; }
+.classesBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.classesBtnGhost {
+  background: #fff;
+  color: #4B24A8;
+  border: 1px solid #DDD3F5;
+}
+
+.classesBtnDanger {
+  background: #FDECEC;
+  color: #C62828;
+  border: 1px solid #F5C6C6;
+}
+
+.classesList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.classCard {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #ECEAF2;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.12s, box-shadow 0.12s;
+  display: flex;
+  flex-direction: row;
+  position: relative;
+}
+
+.classCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(75, 36, 168, 0.10);
+}
+
+.classCardAccent {
+  width: 6px;
+  flex-shrink: 0;
+}
+
+.classCardBody {
+  padding: 16px 18px;
+  flex: 1;
+  min-width: 0;
+}
+
+.classCardName {
+  font-size: 16px;
+  font-weight: 800;
+  color: #171717;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classCardSubject {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #777;
+}
+
+.classCardMeta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #777;
+  gap: 12px;
+}
+
+.classCardCode {
+  color: #4B24A8;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.classCardTeacher {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #777;
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.classLiveBadge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 68, 68, 0.12);
+  color: #C62828;
+  border-radius: 12px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+}
+
+.classLiveDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #FF4444;
+  animation: classLivePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes classLivePulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.classesEmpty {
+  padding: 60px 20px;
+  text-align: center;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px dashed #ECEAF2;
+}
+
+.classesEmptyTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #171717;
+}
+
+.classesEmptyText {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #777;
+}
+
+.classesLoading {
+  padding: 80px 20px;
+  text-align: center;
+  color: #777;
+}
+
+/* =========================================================
+   Class detail
+   ========================================================= */
+
+.classDetailWrap {
+  padding: 24px 28px 40px;
+  max-width: 1000px;
+}
+
+.classDetailBack {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 0;
+  color: #4B24A8;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 4px 0;
+  margin-bottom: 16px;
+}
+
+.classDetailBack:hover { opacity: 0.75; }
+
+.classDetailHero {
+  border-radius: 18px;
+  padding: 26px 28px;
+  margin-bottom: 18px;
+  color: #fff;
+  position: relative;
+}
+
+.classDetailHeroName {
+  font-size: 26px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.classDetailHeroSubject {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #EDE7FF;
+  font-weight: 600;
+}
+
+.classDetailCodeBadge {
+  margin-top: 16px;
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 8px 14px;
+}
+
+.classDetailCodeLabel {
+  color: #EDE7FF;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.classDetailCodeValue {
+  margin-top: 2px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 3px;
+}
+
+.classDetailCard {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+  border: 1px solid #ECEAF2;
+}
+
+.classDetailCardTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #171717;
+  margin: 0 0 8px;
+}
+
+.classDetailCardText {
+  font-size: 13px;
+  color: #777;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.classDetailCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.classDetailCount {
+  background: #F0EBFF;
+  color: #4B24A8;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 12px;
+  padding: 2px 10px;
+}
+
+.classStudentRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid #F2F2F2;
+}
+
+.classStudentRow:first-of-type { border-top: 0; }
+
+.classStudentAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #F0EBFF;
+  color: #4B24A8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.classStudentName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #171717;
+}
+
+.classStudentMeta {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+.classStudentRemove {
+  background: none;
+  border: 0;
+  color: #C62828;
+  font-weight: 800;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.classStudentRemove:hover { background: #FDECEC; }
+
+.classLiveSection {
+  background: linear-gradient(135deg, #F7F4FF 0%, #EDE7FF 100%);
+  border: 1px solid #DDD3F5;
+  border-radius: 16px;
+  padding: 20px 22px;
+  margin-bottom: 14px;
+}
+
+.classLiveSectionTitle {
+  font-size: 13px;
+  font-weight: 900;
+  color: #4B24A8;
+  margin: 0 0 12px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.classLiveRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.classLiveHint {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   Forms
+   ========================================================= */
+
+.classFormWrap {
+  padding: 24px 28px 40px;
+  max-width: 560px;
+}
+
+.classFormTitle {
+  font-size: 24px;
+  font-weight: 900;
+  color: #171717;
+  margin: 0 0 4px;
+}
+
+.classFormSub {
+  font-size: 13px;
+  color: #777;
+  margin: 0 0 22px;
+  line-height: 1.5;
+}
+
+.classFormLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #171717;
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+
+.classFormInput {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #DDD9E8;
+  border-radius: 10px;
+  font-size: 14px;
+  color: #171717;
+  background: #fff;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.classFormInput:focus {
+  outline: 2px solid #4B24A8;
+  outline-offset: -1px;
+  border-color: transparent;
+}
+
+.classFormTextarea {
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.classFormActions {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.classFormError {
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #FDECEC;
+  border: 1px solid #F5C6C6;
+  color: #C62828;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.classJoinBig {
+  text-align: center;
+  padding: 20px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #ECEAF2;
+  margin-bottom: 12px;
+}
+
+.classJoinInput {
+  width: 100%;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  padding: 16px;
+  border: 2px solid #DDD9E8;
+  border-radius: 12px;
+  background: #fff;
+  color: #171717;
+  box-sizing: border-box;
+  text-transform: uppercase;
+}
+
+.classJoinInput:focus {
+  outline: none;
+  border-color: #4B24A8;
+}

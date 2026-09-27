@@ -7,6 +7,9 @@ import App from './App';
 // @ts-ignore
 import './styles/theme.css';
 
+import './styles/classes.css';
+
+
 const root = createRoot(document.getElementById('root')!);
 root.render(
   React.createElement(

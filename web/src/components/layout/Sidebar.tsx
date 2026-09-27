@@ -1,7 +1,8 @@
-import {
+﻿import {
   Bell,
   BellOff,
   CalendarDays,
+  GraduationCap,
   LayoutDashboard,
   LogOut,
   MessageCircle,
@@ -15,6 +16,7 @@ import type { User } from '../../types';
 export type NavId =
   | 'home'
   | 'messages'
+  | 'classes'
   | 'meetings'
   | 'contacts'
   | 'settings'
@@ -33,6 +35,7 @@ interface SidebarProps {
 const NAV: { id: NavId; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
   { id: 'home', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'messages', label: 'Messages', Icon: MessageCircle },
+  { id: 'classes', label: 'Classes', Icon: GraduationCap },
   { id: 'meetings', label: 'Meetings', Icon: CalendarDays },
   { id: 'contacts', label: 'Contacts', Icon: Users },
   { id: 'settings', label: 'Settings', Icon: Settings },
@@ -49,7 +52,7 @@ export function Sidebar({
 }: SidebarProps) {
   return (
     <aside className="sidebar">
-     <Logo variant="mark" />
+      <Logo variant="mark" />
 
       <nav className="nav">
         {NAV.map(({ id, label, Icon }) => (
@@ -61,7 +64,10 @@ export function Sidebar({
             <Icon size={19} />
             <span>{label}</span>
             {id === 'messages' && unreadMessages > 0 && (
-              <span className="unread-badge" aria-label={`${unreadMessages} unread messages`}>
+              <span
+                className="unread-badge"
+                aria-label={`${unreadMessages} unread messages`}
+              >
                 {unreadMessages}
               </span>
             )}

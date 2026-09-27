@@ -3,7 +3,9 @@ import { MonitorUp } from 'lucide-react';
 import { api } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { useMeetingMedia } from '../../hooks/useMeetingMedia';
-import { VideoTile } from './VideoTile';
+import { useMeetingParticipants } from '../../hooks/useMeetingParticipants';
+import { useWebRTC } from '../../hooks/useWebRTC';
+import { ParticipantTile } from './ParticipantTile';
 import { MeetingControls } from './MeetingControls';
 import { WhiteboardPanel } from '../whiteboard/WhiteboardPanel';
 import type { Meeting, User, Whiteboard } from '../../types';
@@ -16,15 +18,18 @@ interface MeetingRoomProps {
 
 export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
   const socket = getSocket();
-  const [share, setShare] = useState(false);
   const [hand, setHand] = useState(false);
+  const [share, setShare] = useState(false);
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [board, setBoard] = useState<Whiteboard | null>(null);
 
   const { stream, muted, camera, toggleMic, toggleCamera, stopAll } =
     useMeetingMedia(meeting._id, socket);
 
-  // Join / leave meeting room
+  const participants = useMeetingParticipants(socket, meeting._id, user);
+  const remoteStreams = useWebRTC(socket, meeting._id, user, stream);
+
+  // Join room on socket
   useEffect(() => {
     socket.emit('meeting:join', meeting._id);
     return () => {
@@ -39,10 +44,21 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
     try {
       const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
       setShare(true);
-      const track = s.getVideoTracks()[0];
-      if (track) track.onended = () => setShare(false);
+      socket.emit('meeting:state', {
+        meetingId: meeting._id,
+        type: 'share',
+        value: true,
+      });
+      s.getVideoTracks()[0].onended = () => {
+        setShare(false);
+        socket.emit('meeting:state', {
+          meetingId: meeting._id,
+          type: 'share',
+          value: false,
+        });
+      };
     } catch {
-      /* user cancelled */
+      /* cancelled */
     }
   };
 
@@ -69,25 +85,38 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
           <div>
             <b>{meeting.title}</b>
             <div className="muted" style={{ color: '#aaa' }}>
-              {meeting.code} · {meeting.status}
+              {meeting.code} ? {meeting.status} ? {participants.length}{' '}
+              {participants.length === 1 ? 'person' : 'people'}
             </div>
           </div>
           <span className="pill">{user.displayName}</span>
         </div>
 
         <div className="tiles">
-          <VideoTile
-            user={user}
-            stream={stream}
-            muted={muted}
-            camera={camera}
-            isSelf
-          />
+          {participants.map((p) => {
+            const streamForThis = p.isSelf
+              ? stream
+              : remoteStreams.get(p.user._id) ?? null;
+
+            return (
+              <ParticipantTile
+                key={p.user._id}
+                user={p.user}
+                stream={streamForThis}
+                muted={p.isSelf ? muted : p.muted}
+                camera={p.isSelf ? camera : p.camera}
+                hand={p.isSelf ? hand : p.hand}
+                share={p.isSelf ? share : p.share}
+                isSelf={p.isSelf}
+              />
+            );
+          })}
 
           {share && (
             <div className="tile">
               <MonitorUp size={42} />
-              <div>Screen sharing is active</div>
+              <div>You are sharing your screen</div>
+              <span className="label">Screen share</span>
             </div>
           )}
         </div>

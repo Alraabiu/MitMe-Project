@@ -1035,3 +1035,23 @@ img {
     padding: 12px;
   }
 }
+/* ---------- Participant tile badges ---------- */
+.tile-badges {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.tile-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}

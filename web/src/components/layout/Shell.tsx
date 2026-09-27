@@ -1,10 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { api, setToken } from '../../services/api';
 import { getSocket, disconnectSocket } from '../../services/socket';
 import { useMessageNotifications } from '../../hooks/useMessageNotifications';
 import type { Meeting, User } from '../../types';
 import { Sidebar, type NavId } from './Sidebar';
 import { Topbar } from './Topbar';
+import { ToastStack } from '../common/ToastStack';
 import { DashboardPage } from '../dashboard/DashboardPage';
 import { MeetingsPage } from '../meetings/MeetingsPage';
 import { MeetingRoom } from '../meetings/MeetingRoom';
@@ -12,17 +13,13 @@ import { MessagesPage } from '../messages/MessagesPage';
 import { ContactsPage } from '../contacts/ContactsPage';
 import { SettingsPage } from '../settings/SettingsPage';
 import { AdminPage } from '../admin/AdminPage';
+import { ClassesPage } from '../classes/ClassesPage';
 
 interface ShellProps {
   user: User;
   setUser: (u: User | null) => void;
 }
 
-/**
- * Root layout shown after authentication.
- * Owns navigation state, notification wiring, and — when a meeting
- * is active — hands the whole viewport to the MeetingRoom.
- */
 export function Shell({ user, setUser }: ShellProps) {
   const [page, setPage] = useState<NavId>('home');
   const [activeMeeting, setActiveMeeting] = useState<Meeting | null>(null);
@@ -41,10 +38,11 @@ export function Shell({ user, setUser }: ShellProps) {
     });
   };
 
-  // Sound + toast + badge notifications for incoming messages
   const {
     unread,
     totalUnread,
+    toasts,
+    dismissToast,
     clearUnread,
   } = useMessageNotifications({
     socket,
@@ -58,14 +56,13 @@ export function Shell({ user, setUser }: ShellProps) {
     try {
       await api.post('/auth/logout');
     } catch {
-      /* Ignore network errors — still clear local session */
+      /* ignore */
     }
     setToken(null, null);
     disconnectSocket();
     setUser(null);
   };
 
-  // When a meeting is open, take over the full screen.
   if (activeMeeting) {
     return (
       <MeetingRoom
@@ -99,11 +96,19 @@ export function Shell({ user, setUser }: ShellProps) {
         {page === 'home' && (
           <DashboardPage user={user} onOpenMeeting={setActiveMeeting} />
         )}
+        {page === 'classes' && (
+          <ClassesPage user={user} onOpenMeeting={setActiveMeeting} />
+        )}
         {page === 'meetings' && (
           <MeetingsPage onOpenMeeting={setActiveMeeting} />
         )}
         {page === 'messages' && (
-          <MessagesPage user={user} />
+          <MessagesPage
+            user={user}
+            unread={unread}
+            onConversationOpened={clearUnread}
+            onActiveConversationChange={setActiveConversationId}
+          />
         )}
         {page === 'contacts' && <ContactsPage />}
         {page === 'settings' && (
@@ -112,6 +117,11 @@ export function Shell({ user, setUser }: ShellProps) {
         {page === 'admin' && <AdminPage />}
       </main>
 
+      <ToastStack
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onOpen={() => setPage('messages')}
+      />
     </div>
   );
 }

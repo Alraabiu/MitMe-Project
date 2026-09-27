@@ -1,4 +1,4 @@
-export interface User {
+﻿export interface User {
   _id: string;
   displayName: string;
   username: string;
@@ -8,7 +8,7 @@ export interface User {
   bio?: string;
   presence?: 'online' | 'away' | 'dnd' | 'offline';
   status?: 'active' | 'suspended';
-  role?: 'user' | 'moderator' | 'admin';
+  role?: 'student' | 'teacher' | 'moderator' | 'admin';
   lastSeen?: string;
 }
 
@@ -26,6 +26,7 @@ export interface Meeting {
   whiteboardEnabled?: boolean;
   chatEnabled?: boolean;
   screenShareEnabled?: boolean;
+  classId?: string | null;
 }
 
 export interface Conversation {
@@ -69,4 +70,41 @@ export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: User;
+}
+
+/* =========================================================
+   CLASS
+   ========================================================= */
+
+export interface ClassTeacher {
+  _id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string;
+  role?: string;
+}
+
+export interface ClassStudent {
+  _id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string;
+  email?: string;
+  role?: string;
+}
+
+export interface ClassItem {
+  _id: string;
+  name: string;
+  description?: string;
+  subject?: string;
+  code: string;
+  teacher: ClassTeacher;
+  students: (ClassStudent | string)[];
+  coverColor?: string;
+  isArchived?: boolean;
+  isLive?: boolean;
+  activeMeetingCode?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }

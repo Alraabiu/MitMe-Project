@@ -1,22 +1,15 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Socket } from 'socket.io-client';
-
-type RefObject<T> = { readonly current: T | null };
 
 export interface MeetingMediaState {
   stream: MediaStream | null;
   muted: boolean;
   camera: boolean;
-  videoRef: RefObject<HTMLVideoElement>;
   toggleMic: () => Promise<void>;
   toggleCamera: () => Promise<void>;
   stopAll: () => void;
 }
 
-/**
- * Manages the local user's audio/video stream and broadcasts state
- * changes to the meeting room via Socket.IO.
- */
 export function useMeetingMedia(
   meetingId: string,
   socket: Socket
@@ -24,61 +17,69 @@ export function useMeetingMedia(
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(true);
   const [camera, setCamera] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
 
-  const ensureStream = useCallback(async (): Promise<MediaStream> => {
-    if (stream) return stream;
-    const s = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-      video: true,
-    });
-    setStream(s);
-    if (videoRef.current) videoRef.current.srcObject = s;
-    return s;
-  }, [stream]);
+  // Acquire media on mount ? both tracks disabled by default so the user
+  // isn't "live" until they tap the buttons, but WebRTC has something to send.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        s.getAudioTracks().forEach((t) => (t.enabled = false));
+        s.getVideoTracks().forEach((t) => (t.enabled = false));
+        setStream(s);
+      } catch (err) {
+        console.warn('[media] getUserMedia failed', err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleMic = useCallback(async () => {
-    try {
-      const s = await ensureStream();
-      const track = s.getAudioTracks()[0];
-      if (!track) return;
-      const next = !muted;
-      track.enabled = !next;
-      setMuted(next);
-      socket.emit('meeting:state', {
-        meetingId,
-        type: 'media',
-        value: { muted: next, camera },
-      });
-    } catch {
-      alert('Microphone permission was denied.');
-    }
-  }, [ensureStream, muted, camera, meetingId, socket]);
+    if (!stream) return;
+    const track = stream.getAudioTracks()[0];
+    if (!track) return;
+    const next = !muted;
+    track.enabled = !next;
+    setMuted(next);
+    socket.emit('meeting:state', {
+      meetingId,
+      type: 'media',
+      value: { muted: next, camera },
+    });
+  }, [stream, muted, camera, meetingId, socket]);
 
   const toggleCamera = useCallback(async () => {
-    try {
-      const s = await ensureStream();
-      const track = s.getVideoTracks()[0];
-      if (!track) return;
-      const next = !camera;
-      track.enabled = next;
-      setCamera(next);
-      socket.emit('meeting:state', {
-        meetingId,
-        type: 'media',
-        value: { muted, camera: next },
-      });
-    } catch {
-      alert('Camera permission was denied.');
-    }
-  }, [ensureStream, muted, camera, meetingId, socket]);
+    if (!stream) return;
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+    const next = !camera;
+    track.enabled = next;
+    setCamera(next);
+    socket.emit('meeting:state', {
+      meetingId,
+      type: 'media',
+      value: { muted, camera: next },
+    });
+  }, [stream, muted, camera, meetingId, socket]);
 
   const stopAll = useCallback(() => {
-    stream?.getTracks().forEach((t: MediaStreamTrack) => t.stop());
+    stream?.getTracks().forEach((t) => t.stop());
     setStream(null);
     setCamera(false);
     setMuted(true);
   }, [stream]);
 
-  return { stream, muted, camera, videoRef, toggleMic, toggleCamera, stopAll };
+  return { stream, muted, camera, toggleMic, toggleCamera, stopAll };
 }
