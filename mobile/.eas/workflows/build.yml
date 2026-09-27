@@ -1,4 +1,4 @@
-﻿name: Build Android APK on push
+﻿name: Auto Build APK on Push
 
 on:
   push:
