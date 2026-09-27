@@ -56,7 +56,7 @@
             "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class com.reactnativegooglesignin.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }"
+            "extraProguardRules": "-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class com.reactnativegooglesignin.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class expo.modules.updates.** { *; }"
           }
         }
       ],
@@ -125,6 +125,15 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/16dfcd42-9dde-4baf-9207-b5339dbb416a",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD",
+      "enabled": true
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "owner": "muhammadtechs",
     "extra": {
