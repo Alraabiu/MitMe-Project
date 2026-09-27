@@ -68,7 +68,9 @@ const generateUniqueUsername = async (email, name) => {
 };
 
 export const register = asyncHandler(async (req, res) => {
-  const { displayName, username, email, phone, password } = req.body;
+  const { displayName, username, email, phone, password, role } = req.body;
+  const allowedRoles = ['student', 'teacher'];
+  const safeRole = allowedRoles.includes(role) ? role : 'student';
 
   if (!email && !phone) {
     return res.status(400).json({ message: 'Email or phone is required' });
@@ -93,6 +95,7 @@ export const register = asyncHandler(async (req, res) => {
       email,
       phone,
       passwordHash,
+      role: safeRole,
       authProvider: 'local',
     });
     return res.status(201).json(await issue(user, req));

@@ -30,7 +30,11 @@ const schema = new mongoose.Schema(
       default: 'offline',
     },
     lastSeen: Date,
-    role: { type: String, enum: ['user', 'moderator', 'admin'], default: 'user' },
+    role: {
+      type: String,
+      enum: ['student', 'teacher', 'moderator', 'admin'],
+      default: 'student',
+    },
   },
   { timestamps: true }
 );

@@ -1,13 +1,16 @@
-import http from 'http';
+﻿import http from 'http';
 import { buildApp } from './app.js';
 import { env } from './config/env.js';
 import { log } from './config/logger.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { createIO } from './config/socket.js';
 import { registerSockets } from './sockets/index.js';
+import { migrateRoles } from './scripts/migrateRoles.js';
 
 const start = async () => {
   await connectDB();
+
+  await migrateRoles();
 
   const app = buildApp();
   const server = http.createServer(app);
@@ -16,8 +19,15 @@ const start = async () => {
 
   registerSockets(io);
 
-  await new Promise((resolve) => server.listen(env.PORT, resolve));
-  log.info('server_started', { port: env.PORT, env: env.NODE_ENV });
+  await new Promise((resolve) =>
+    server.listen(env.PORT, '0.0.0.0', resolve)
+  );
+
+  log.info('server_started', {
+    port: env.PORT,
+    host: '0.0.0.0',
+    env: env.NODE_ENV,
+  });
 
   const shutdown = async (signal) => {
     log.warn('shutdown_initiated', { signal });
@@ -27,7 +37,6 @@ const start = async () => {
       log.info('shutdown_complete');
       process.exit(0);
     });
-    // Hard exit if graceful shutdown takes too long
     setTimeout(() => process.exit(1), 10_000).unref();
   };
 

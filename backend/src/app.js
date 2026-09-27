@@ -1,4 +1,4 @@
-import express from 'express';
+﻿import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -16,6 +16,7 @@ import meetingRoutes from './routes/meetings.js';
 import whiteboardRoutes from './routes/whiteboards.js';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
+import classRoutes from './routes/classes.js';
 
 export const buildApp = () => {
   const app = express();
@@ -30,7 +31,6 @@ export const buildApp = () => {
   app.use(express.json({ limit: '5mb' }));
   app.use(morgan(isProd ? 'combined' : 'dev'));
 
-  // Global limiter applied only to /api/*
   app.use(
     env.API_PREFIX,
     rateLimit({
@@ -53,6 +53,7 @@ export const buildApp = () => {
   app.use(`${env.API_PREFIX}/whiteboards`, whiteboardRoutes);
   app.use(`${env.API_PREFIX}/notifications`, notificationRoutes);
   app.use(`${env.API_PREFIX}/admin`, adminRoutes);
+  app.use(`${env.API_PREFIX}/classes`, classRoutes);
 
   app.use(notFound);
   app.use(errorHandler);
