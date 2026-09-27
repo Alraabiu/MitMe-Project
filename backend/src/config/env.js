@@ -1,4 +1,4 @@
-import 'dotenv/config';
+﻿import 'dotenv/config';
 import { z } from 'zod';
 
 const schema = z.object({
@@ -40,19 +40,18 @@ const schema = z.object({
   FIREBASE_CLIENT_EMAIL: z.string().optional().default(''),
   FIREBASE_PRIVATE_KEY: z.string().optional().default(''),
 
+  GOOGLE_WEB_CLIENT_ID: z.string().optional().default(''),
+
   OTP_PROVIDER: z.string().optional().default(''),
   EMAIL_PROVIDER: z.string().optional().default(''),
 });
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
-  console.error('❌ Invalid environment configuration:');
-  for (const issue of parsed.error.issues) {
-    console.error(`   • ${issue.path.join('.')}: ${issue.message}`);
-  }
+  console.error('[env] Invalid environment configuration:');
+  console.error(parsed.error.flatten().fieldErrors);
   process.exit(1);
 }
 
-export const env = Object.freeze(parsed.data);
+export const env = parsed.data;
 export const isProd = env.NODE_ENV === 'production';
-export const isDev = env.NODE_ENV === 'development';

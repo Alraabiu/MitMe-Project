@@ -1,7 +1,14 @@
-import { Router } from 'express';
+﻿import { Router } from 'express';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
-import { register, login, refresh, logout, me } from '../controllers/auth.js';
+import {
+  register,
+  login,
+  refresh,
+  logout,
+  me,
+  googleAuth,
+} from '../controllers/auth.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
 import { env } from '../config/env.js';
@@ -28,8 +35,13 @@ const reg = z.object({
   password: z.string().min(8),
 });
 
+const googleBody = z.object({
+  idToken: z.string().min(20),
+});
+
 r.post('/register', authLimiter, validate(reg), register);
 r.post('/login', authLimiter, validate(creds), login);
+r.post('/google', authLimiter, validate(googleBody), googleAuth);
 r.post('/refresh', validate(z.object({ refreshToken: z.string().min(20) })), refresh);
 r.post('/logout', requireAuth, logout);
 r.get('/me', requireAuth, me);
