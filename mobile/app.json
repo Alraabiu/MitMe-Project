@@ -7,11 +7,6 @@
     "scheme": "mitme",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -19,6 +14,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
       [
         "expo-camera",
         {
@@ -37,7 +40,26 @@
           "photosPermission": "MitMe needs access to your photos to set your avatar."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#4B24A8",
+          "androidMode": "default",
+          "androidCollapsedTitle": "MitMe"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class com.reactnativegooglesignin.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }"
+          }
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {
@@ -64,9 +86,8 @@
     },
     "android": {
       "package": "com.mitme.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "googleServicesFile": "./google-services.json",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4B24A8"
@@ -104,12 +125,6 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    },
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#4B24A8",
-      "androidMode": "default",
-      "androidCollapsedTitle": "MitMe"
     },
     "owner": "muhammadtechs",
     "extra": {

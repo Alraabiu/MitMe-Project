@@ -1,5 +1,4 @@
 ﻿import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import Constants from 'expo-constants';
 
 interface Props {
   onPress: () => void;
@@ -7,32 +6,18 @@ interface Props {
   disabled?: boolean;
 }
 
-// Detect if running inside Expo Go (storeClient).
-// In Expo Go, native modules like RNGoogleSignin are NOT available.
-const isExpoGo =
-  Constants.executionEnvironment === 'storeClient' ||
-  (Constants.appOwnership as string | undefined) === 'expo';
-
-// Only require the native module when NOT in Expo Go.
-let NativeButton: any = null;
-let signInFn: any = null;
-
-if (!isExpoGo) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@react-native-google-signin/google-signin');
-    NativeButton = mod?.GoogleSigninButton ?? null;
-    if (mod?.GoogleSignin && process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID) {
-      mod.GoogleSignin.configure({
-        webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
-        offlineAccess: false,
-      });
-    }
-  } catch {
-    NativeButton = null;
-  }
-}
-
+/**
+ * Branded Google Sign-In button.
+ *
+ * We deliberately DO NOT use the native `GoogleSigninButton` from
+ * @react-native-google-signin/google-signin because its codegen spec
+ * has changed between versions (v13: number props, v16: string props).
+ * Passing the wrong type crashes the native view manager with:
+ *   java.lang.ClassCastException: Double cannot be cast to String
+ *
+ * Instead, we render our own button and trigger GoogleSignin.signIn()
+ * ourselves (in useGoogleAuth.ts). This is version-proof.
+ */
 export function GoogleButton({ onPress, loading, disabled }: Props) {
   const isDisabled = disabled || loading;
 
@@ -40,14 +25,6 @@ export function GoogleButton({ onPress, loading, disabled }: Props) {
     <View style={styles.wrapper}>
       {loading ? (
         <ActivityIndicator size="small" color="#4285F4" />
-      ) : NativeButton ? (
-        <NativeButton
-          size={2 /* Wide */}
-          color={0 /* Light */}
-          onPress={onPress}
-          disabled={isDisabled}
-          style={styles.button}
-        />
       ) : (
         <Pressable
           onPress={onPress}
@@ -73,11 +50,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     width: '100%',
-  },
-  button: {
-    width: '100%',
-    height: 52,
-    borderRadius: 12,
   },
   fallbackBtn: {
     width: '100%',
