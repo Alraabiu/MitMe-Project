@@ -81,6 +81,13 @@ img {
   min-height: 100vh;
 }
 
+/* Shared spinner animation (used in multiple places) */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* ============================================================
    Shell / layout
    ============================================================ */
@@ -129,7 +136,6 @@ img {
   letter-spacing: 0.2px;
 }
 
-/* Logo mark (image) — used in sidebar */
 .brand-logo {
   width: 38px;
   height: 38px;
@@ -140,7 +146,6 @@ img {
   background: transparent;
 }
 
-/* Full logo (image with wordmark) — used on auth screen */
 .logo-full {
   display: flex;
   justify-content: center;
@@ -407,7 +412,6 @@ img {
   gap: 12px;
 }
 
-/* Field wrapper with label */
 .field {
   display: grid;
   gap: 6px;
@@ -455,6 +459,29 @@ img {
 
 .auth-card .tagline {
   color: var(--muted);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-google {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 6px;
 }
 
 .login-switch {
@@ -511,106 +538,136 @@ img {
 }
 
 /* ============================================================
-   Meeting room
+   Meeting room — LiveKit
    ============================================================ */
-.meeting {
-  height: calc(100vh - 56px);
-  background: #0e0c18;
-  color: white;
-  border-radius: 22px;
+.meeting-livekit {
   display: flex;
+  height: calc(100vh - 40px);
+  margin: 20px;
+  border-radius: 22px;
   overflow: hidden;
+  background: #0e0c18;
+  position: relative;
 }
 
-.stage {
+.meeting-stage {
   flex: 1;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+  position: relative;
   min-width: 0;
 }
 
-.meetingbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  gap: 16px;
-}
-
-.meetingbar b {
-  font-size: 16px;
-}
-
-.tiles {
+.meeting-loading {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
-  align-content: start;
-}
-
-.tile {
-  background: #201c2e;
-  border-radius: 16px;
-  min-height: 180px;
-  position: relative;
-  overflow: hidden;
-  display: grid;
-  place-items: center;
-}
-
-.tile video {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.tile .label {
-  position: absolute;
-  left: 10px;
-  bottom: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 5px 8px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.controls {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px;
-  flex-wrap: wrap;
+  color: white;
 }
 
-.control {
-  border: 0;
-  background: #29243a;
+.meeting-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #8c5cf4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+/* Non-blocking overlay pills */
+.meeting-info-pill {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.65);
   color: white;
-  border-radius: var(--radius-sm);
-  padding: 11px 14px;
-  transition: background 0.15s ease;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  pointer-events: none;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meeting-status-pill {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: white;
+  backdrop-filter: blur(8px);
+  z-index: 10;
+  pointer-events: none;
+  background: rgba(217, 75, 101, 0.75);
+}
+
+.meeting-status-pill.ok {
+  background: rgba(33, 166, 106, 0.75);
+}
+
+.meeting-side-btn {
+  position: absolute;
+  top: 60px;
+  right: 16px;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  background: rgba(41, 36, 58, 0.95);
+  color: white;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.15s ease;
+  backdrop-filter: blur(8px);
 }
 
-.control:hover {
-  background: #332c47;
+.meeting-side-btn:hover {
+  background: rgba(60, 52, 82, 0.95);
 }
 
-.control.active {
+.meeting-side-btn.active {
   background: #5e42be;
 }
 
-.control.end {
-  background: var(--danger);
+.meeting-livekit .lk-control-bar {
+  background: rgba(20, 17, 32, 0.9) !important;
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.control.end:hover {
-  background: #c53e56;
+/* Participant tile badges */
+.tile-badges {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.tile-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ============================================================
@@ -629,6 +686,14 @@ img {
   font-size: 16px;
 }
 
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
 .whiteboard {
   background: white;
   color: var(--ink);
@@ -645,6 +710,153 @@ img {
   display: grid;
   place-items: center;
   color: #777;
+}
+
+/* ============================================================
+   Waiting room
+   ============================================================ */
+.meeting-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 40px);
+  margin: 20px;
+  border-radius: 22px;
+  background: radial-gradient(circle at center, #1a1730, #0e0c18);
+}
+
+.meeting-waiting-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  backdrop-filter: blur(20px);
+}
+
+.meeting-waiting-card h2 {
+  font-size: 20px;
+  margin: 20px 0 10px;
+  font-weight: 800;
+}
+
+.meeting-waiting-card p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.meeting-waiting-card .muted {
+  color: #9b94b8;
+  font-size: 13px;
+}
+
+.meeting-waiting-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #8c5cf4;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+/* ============================================================
+   Host approval panel
+   ============================================================ */
+.host-approval-panel {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  width: 300px;
+  background: rgba(20, 17, 32, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+  z-index: 20;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.host-approval-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #d5cfe6;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 10px;
+}
+
+.host-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.host-approval-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.host-approval-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.host-approval-name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-approval-sub {
+  font-size: 11px;
+  color: #9b94b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-approval-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+}
+
+.host-approval-btn.admit {
+  background: #21a66a;
+}
+
+.host-approval-btn.admit:hover {
+  background: #1b8a56;
+}
+
+.host-approval-btn.reject {
+  background: #d94b65;
+}
+
+.host-approval-btn.reject:hover {
+  background: #b83b52;
 }
 
 /* ============================================================
@@ -970,8 +1182,16 @@ img {
     grid-template-columns: 1fr;
   }
 
-  .panel {
-    display: none;
+  /* Whiteboard becomes a full-screen overlay on smaller screens */
+  .meeting-livekit .panel {
+    position: fixed;
+    inset: 0;
+    width: auto;
+    max-width: 100%;
+    z-index: 100;
+    background: #181522;
+    padding: 16px;
+    overflow-y: auto;
   }
 }
 
@@ -1016,8 +1236,9 @@ img {
     padding: 18px 18px 82px;
   }
 
-  .meeting {
+  .meeting-livekit {
     height: calc(100vh - 20px);
+    margin: 10px;
     border-radius: 0;
   }
 
@@ -1034,566 +1255,13 @@ img {
   .messages-chat {
     padding: 12px;
   }
-}
-/* ---------- Participant tile badges ---------- */
-.tile-badges {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 6px;
-}
 
-.tile-badge {
-  width: 24px;
-  height: 24px;
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* =========================================================
-   Google Login (web)
-   ========================================================= */
-
-.googleLoginWrap {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.googleLoginDivider {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: #777;
-  font-size: 12px;
-}
-
-.googleLoginDivider::before,
-.googleLoginDivider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #ECEAF2;
-}
-
-.googleLoginDivider span {
-  flex-shrink: 0;
-  font-weight: 700;
-}
-
-.googleLoginError {
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: #FDECEC;
-  color: #C62828;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
-/* =========================================================
-   Google Login (web)
-   ========================================================= */
-
-.googleLoginWrap {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
-
-.googleLoginDivider {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 14px;
-  color: #777;
-  font-size: 12px;
-}
-
-.googleLoginDivider::before,
-.googleLoginDivider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: #ECEAF2;
-}
-
-.googleLoginDivider span {
-  flex-shrink: 0;
-  font-weight: 700;
-}
-
-.googleLoginError {
-  padding: 12px 16px;
-  border-radius: 10px;
-  background: #FDECEC;
-  color: #C62828;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
-/* ============================================================
-   LiveKit meeting room
-   ============================================================ */
-.meeting-livekit {
-  display: flex;
-  height: calc(100vh - 40px);
-  margin: 20px;
-  border-radius: 22px;
-  overflow: hidden;
-  background: #0e0c18;
-  position: relative;
-}
-
-.meeting-stage {
-  flex: 1;
-  position: relative;
-  min-width: 0;
-}
-
-.meeting-loading {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.meeting-loading .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: #8c5cf4;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
+  /* Host approval panel adjusts for phones */
+  .host-approval-panel {
+    width: calc(100% - 32px);
+    right: 16px;
+    left: 16px;
+    top: auto;
+    bottom: 90px;
   }
-}
-
-.meeting-overlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 16px;
-  z-index: 5;
-}
-
-.meeting-overlay-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  pointer-events: auto;
-}
-
-.meeting-overlay-info {
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  backdrop-filter: blur(8px);
-}
-
-.meeting-status {
-  background: rgba(0, 0, 0, 0.55);
-  color: white;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  backdrop-filter: blur(8px);
-}
-
-.meeting-status.ok {
-  background: rgba(33, 166, 106, 0.7);
-}
-.meeting-status.warn {
-  background: rgba(217, 75, 101, 0.7);
-}
-
-.meeting-overlay-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  pointer-events: auto;
-}
-
-.meeting-tool {
-  background: rgba(41, 36, 58, 0.9);
-  border: 0;
-  color: white;
-  border-radius: 12px;
-  padding: 10px 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease;
-  backdrop-filter: blur(8px);
-}
-
-.meeting-tool:hover {
-  background: rgba(60, 52, 82, 0.95);
-}
-
-.meeting-tool.active {
-  background: #5e42be;
-}
-
-.meeting-tool-leave {
-  background: rgba(217, 75, 101, 0.95);
-}
-
-.meeting-tool-leave:hover {
-  background: #c53e56;
-}
-
-/* LiveKit's built-in control bar styling */
-.meeting-livekit .lk-control-bar {
-  background: rgba(20, 17, 32, 0.85) !important;
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Panel header used by the whiteboard sidebar */
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-/* ============================================================
-   LiveKit meeting room
-   ============================================================ */
-.meeting-livekit {
-  display: flex;
-  height: calc(100vh - 40px);
-  margin: 20px;
-  border-radius: 22px;
-  overflow: hidden;
-  background: #0e0c18;
-  position: relative;
-}
-
-.meeting-stage {
-  flex: 1;
-  position: relative;
-  min-width: 0;
-}
-
-.meeting-loading {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.meeting-loading .spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: #8c5cf4;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ---------- Non-blocking overlay pills ---------- */
-
-.meeting-info-pill {
-  position: absolute;
-  top: 16px;
-  left: 16px;
-  background: rgba(0, 0, 0, 0.65);
-  color: white;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  backdrop-filter: blur(8px);
-  z-index: 10;
-  pointer-events: none;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.meeting-status-pill {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: white;
-  backdrop-filter: blur(8px);
-  z-index: 10;
-  pointer-events: none;
-  background: rgba(217, 75, 101, 0.75);
-}
-
-.meeting-status-pill.ok {
-  background: rgba(33, 166, 106, 0.75);
-}
-
-.meeting-side-btn {
-  position: absolute;
-  top: 60px;
-  right: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(41, 36, 58, 0.95);
-  color: white;
-  border: 0;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-  z-index: 10;
-  transition: background 0.15s ease;
-  backdrop-filter: blur(8px);
-}
-
-.meeting-side-btn:hover {
-  background: rgba(60, 52, 82, 0.95);
-}
-
-.meeting-side-btn.active {
-  background: #5e42be;
-}
-
-/* LiveKit's built-in control bar styling */
-.meeting-livekit .lk-control-bar {
-  background: rgba(20, 17, 32, 0.9) !important;
-  backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-/* Panel header for the whiteboard sidebar */
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-/* ============================================================
-   Auth — Google sign-in
-   ============================================================ */
-.auth-divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0 16px;
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.auth-divider::before,
-.auth-divider::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: var(--border);
-}
-
-.auth-google {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 6px;
-}
-
-/* ============================================================
-   Waiting room
-   ============================================================ */
-.meeting-waiting {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: calc(100vh - 40px);
-  margin: 20px;
-  border-radius: 22px;
-  background: radial-gradient(circle at center, #1a1730, #0e0c18);
-}
-
-.meeting-waiting-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 48px 40px;
-  max-width: 420px;
-  width: 100%;
-  text-align: center;
-  color: #fff;
-  backdrop-filter: blur(20px);
-}
-
-.meeting-waiting-card h2 {
-  font-size: 20px;
-  margin: 20px 0 10px;
-  font-weight: 800;
-}
-
-.meeting-waiting-card p {
-  margin: 6px 0;
-  line-height: 1.5;
-}
-
-.meeting-waiting-card .muted {
-  color: #9b94b8;
-  font-size: 13px;
-}
-
-.meeting-waiting-spinner {
-  width: 56px;
-  height: 56px;
-  margin: 0 auto;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #8c5cf4;
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ============================================================
-   Host approval panel
-   ============================================================ */
-.host-approval-panel {
-  position: absolute;
-  top: 70px;
-  right: 16px;
-  width: 300px;
-  background: rgba(20, 17, 32, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px;
-  padding: 12px;
-  z-index: 20;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-  color: #fff;
-}
-
-.host-approval-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 800;
-  color: #d5cfe6;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  margin-bottom: 10px;
-}
-
-.host-approval-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-height: 320px;
-  overflow-y: auto;
-}
-
-.host-approval-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.host-approval-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.host-approval-name {
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.host-approval-sub {
-  font-size: 11px;
-  color: #9b94b8;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.host-approval-btn {
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  border: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #fff;
-}
-
-.host-approval-btn.admit {
-  background: #21a66a;
-}
-
-.host-approval-btn.admit:hover {
-  background: #1b8a56;
-}
-
-.host-approval-btn.reject {
-  background: #d94b65;
-}
-
-.host-approval-btn.reject:hover {
-  background: #b83b52;
 }
