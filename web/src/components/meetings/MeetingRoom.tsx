@@ -25,7 +25,7 @@ interface MediaInfo {
   token: string | null;
 }
 
-export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
+export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
   const [media, setMedia] = useState<MediaInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -34,7 +34,7 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
 
   const socket = getSocket();
 
-  // Fetch the LiveKit token when the room mounts
+  // Fetch LiveKit token
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -58,9 +58,40 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
     };
   }, [meeting._id]);
 
+  // ─── Sync whiteboard open/close across all participants ─
+  useEffect(() => {
+    if (!socket) return;
+
+    const onState = (payload: {
+      userId: string;
+      type: string;
+      value: any;
+    }) => {
+      if (payload.userId === user._id) return;
+      if (payload.type === 'whiteboard') {
+        // Another user opened or closed the whiteboard
+        setWhiteboardOpen(!!payload.value);
+      }
+    };
+
+    socket.on('meeting:state', onState);
+    return () => {
+      socket.off('meeting:state', onState);
+    };
+  }, [socket, user._id]);
+
   const handleLeave = () => {
     api.post(`/meetings/${meeting._id}/leave`).catch(() => {});
     onLeave();
+  };
+
+  const toggleWhiteboard = (next: boolean) => {
+    setWhiteboardOpen(next);
+    socket.emit('meeting:state', {
+      meetingId: meeting._id,
+      type: 'whiteboard',
+      value: next,
+    });
   };
 
   if (loading) {
@@ -94,6 +125,10 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
     );
   }
 
+  const isTeacher =
+    String(meeting.host?._id) === String(user._id) ||
+    user.role === 'teacher';
+
   return (
     <div className="meeting-livekit">
       <div className="meeting-stage">
@@ -112,7 +147,7 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
           <MeetingRoomExtras
             meeting={meeting}
             whiteboardOpen={whiteboardOpen}
-            setWhiteboardOpen={setWhiteboardOpen}
+            setWhiteboardOpen={toggleWhiteboard}
           />
         </LiveKitRoom>
       </div>
@@ -124,7 +159,7 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
             <button
               className="btn"
               style={{ padding: '6px 10px' }}
-              onClick={() => setWhiteboardOpen(false)}
+              onClick={() => toggleWhiteboard(false)}
             >
               <X size={14} />
             </button>
@@ -134,9 +169,12 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
             socket={socket}
             board={board}
             setBoard={setBoard}
+            canClear={isTeacher}
           />
           <p className="muted" style={{ marginTop: 12 }}>
-            Changes are sent through Socket.IO and persisted in MongoDB.
+            {isTeacher
+              ? 'As a teacher, you can clear the board for everyone.'
+              : 'Changes are sent through Socket.IO and persisted in MongoDB.'}
           </p>
         </aside>
       )}
@@ -144,15 +182,6 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
   );
 }
 
-/**
- * Small non-blocking overlays:
- *  - top-left: meeting title + code
- *  - top-right: connection status pill
- *  - below that: whiteboard toggle button
- *
- * None of these overlap LiveKit's built-in control bar, so
- * Microphone / Camera / Share screen / Chat / Leave all stay clickable.
- */
 function MeetingRoomExtras({
   meeting,
   whiteboardOpen,
@@ -166,13 +195,11 @@ function MeetingRoomExtras({
 
   return (
     <>
-      {/* Top-left info */}
       <div className="meeting-info-pill">
         <b>{meeting.title}</b>
         <span style={{ color: '#aaa' }}> · {meeting.code}</span>
       </div>
 
-      {/* Top-right status */}
       <div
         className={`meeting-status-pill ${
           connectionState === ConnectionState.Connected ? 'ok' : 'warn'
@@ -181,7 +208,6 @@ function MeetingRoomExtras({
         {connectionState}
       </div>
 
-      {/* Below status: whiteboard toggle */}
       <button
         className={`meeting-side-btn ${whiteboardOpen ? 'active' : ''}`}
         onClick={() => setWhiteboardOpen(!whiteboardOpen)}

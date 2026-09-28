@@ -29,7 +29,9 @@ import {
 } from 'lucide-react-native';
 import { api } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
+import { useSocket } from '../src/hooks/useSocket';
 import { colors, spacing, radii, font } from '../src/theme';
+import type { Socket } from 'socket.io-client';
 
 interface MediaInfo {
   provider: string;
@@ -153,9 +155,11 @@ function MeetingUI({
 }) {
   const router = useRouter();
   const { localParticipant } = useLocalParticipant();
+  const socket = useSocket();
 
   const [muted, setMuted] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
+  const [remoteBoardOpen, setRemoteBoardOpen] = useState(false);
 
   // iOS audio session management
   useEffect(() => {
@@ -170,6 +174,39 @@ function MeetingUI({
       AudioSession.stopAudioSession().catch(() => {});
     };
   }, []);
+
+  // ─── Listen for whiteboard open/close from other participants ───
+  useEffect(() => {
+    if (!socket) return;
+
+    const onState = (payload: {
+      userId: string;
+      type: string;
+      value: any;
+    }) => {
+      if (payload.type === 'whiteboard') {
+        setRemoteBoardOpen(!!payload.value);
+      }
+    };
+
+    socket.on('meeting:state', onState);
+    return () => {
+      socket.off('meeting:state', onState);
+    };
+  }, [socket]);
+
+  // ─── Broadcast when we open the whiteboard screen ────────────
+  const openWhiteboard = () => {
+    socket?.emit('meeting:state', {
+      meetingId,
+      type: 'whiteboard',
+      value: true,
+    });
+    router.push({
+      pathname: '/meeting-whiteboard',
+      params: { meetingId, broadcast: '1' },
+    });
+  };
 
   // All camera tracks (with placeholders for participants without camera)
   const tracks = useTracks(
@@ -212,11 +249,23 @@ function MeetingUI({
         <View style={s.liveDot} />
       </View>
 
+      {/* Remote whiteboard banner */}
+      {remoteBoardOpen && (
+        <View style={s.boardBanner}>
+          <PenTool size={14} color="#fff" />
+          <Text style={s.boardBannerText}>
+            A participant opened the whiteboard
+          </Text>
+          <Pressable style={s.boardBannerBtn} onPress={openWhiteboard}>
+            <Text style={s.boardBannerBtnText}>Join</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Video tiles */}
       <View style={s.stage}>
         <View style={s.tiles}>
           {tracks.map((track, i) => {
-            // Placeholder tile (participant has no camera track yet)
             if (!isTrackReference(track)) {
               return (
                 <View key={`ph-${i}`} style={s.tile}>
@@ -239,7 +288,6 @@ function MeetingUI({
               );
             }
 
-            // Real video tile
             return (
               <View
                 key={track.publication?.trackSid || `t-${i}`}
@@ -287,15 +335,7 @@ function MeetingUI({
           )}
         </Pressable>
 
-        <Pressable
-          style={[s.control, s.controlDefault]}
-          onPress={() => {
-            router.push({
-              pathname: '/meeting-whiteboard',
-              params: { meetingId },
-            });
-          }}
-        >
+        <Pressable style={[s.control, s.controlDefault]} onPress={openWhiteboard}>
           <PenTool size={22} color="#fff" />
         </Pressable>
 
@@ -355,6 +395,35 @@ const s = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: colors.danger,
+  },
+
+  boardBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: 'rgba(94, 66, 190, 0.95)',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radii.md,
+  },
+  boardBannerText: {
+    color: '#fff',
+    fontSize: font.sm,
+    fontWeight: '700',
+    flex: 1,
+  },
+  boardBannerBtn: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: radii.sm,
+  },
+  boardBannerBtnText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: font.sm,
   },
 
   stage: { flex: 1, padding: spacing.md },

@@ -8,6 +8,7 @@ const r = Router();
 r.use(requireAuth);
 
 r.get('/:meetingId', get);
+
 r.post(
   '/:meetingId/events',
   validate(
@@ -19,6 +20,7 @@ r.post(
   ),
   addEvent
 );
+
 r.patch('/:meetingId', update);
 
 export default r;
