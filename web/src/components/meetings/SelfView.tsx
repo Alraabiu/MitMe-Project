@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import {
   useTracks,
   VideoTrack,
@@ -7,13 +8,14 @@ import {
 import { Track } from 'livekit-client';
 
 /**
- * Floating picture-in-picture view of your own camera.
+ * Floating picture-in-picture view of your OWN camera.
  *
- * Visible whenever ANY participant is sharing their screen (host or not),
- * as long as your own camera is on. This matches Google Meet behavior:
- * every participant sees themselves + the shared content.
+ * Appears when ANY participant is sharing their screen (so you can
+ * still see yourself alongside the shared content). Hidden otherwise.
  *
- * Hidden when the screen share stops.
+ * While the PiP is visible, your big tile in the grid is hidden via
+ * CSS (see `.screen-sharing-active .lk-participant-tile[data-lk-local-participant="true"]`),
+ * so you never see your own face twice.
  */
 export function SelfView() {
   const tracks = useTracks(
@@ -24,13 +26,12 @@ export function SelfView() {
     { onlySubscribed: false }
   );
 
-  // Is a screen share active anywhere in the meeting?
-  // (host sharing OR you sharing — either counts)
+  // Is any screen share active in the meeting right now?
   const isAnyScreenShareActive = tracks.some(
     (t) => t.source === Track.Source.ScreenShare
   );
 
-  // Your own camera track (only if you have it on)
+  // Your own camera track (only if you have it enabled)
   const localCamera = tracks.find(
     (t): t is TrackReference =>
       isTrackReference(t) &&
@@ -38,14 +39,29 @@ export function SelfView() {
       t.source === Track.Source.Camera
   );
 
-  // Show the PiP only when:
-  //   1. Someone is sharing a screen, AND
-  //   2. Your camera is on
+  // Toggle a class on the meeting wrapper so CSS can hide our own tile
+  useEffect(() => {
+    const wrapper = document.querySelector('.meeting-livekit');
+    if (!wrapper) return;
+
+    if (isAnyScreenShareActive && localCamera) {
+      wrapper.classList.add('screen-sharing-active');
+    } else {
+      wrapper.classList.remove('screen-sharing-active');
+    }
+
+    return () => {
+      wrapper.classList.remove('screen-sharing-active');
+    };
+  }, [isAnyScreenShareActive, localCamera]);
+
+  // Only render the PiP when someone is sharing AND your camera is on
   if (!isAnyScreenShareActive || !localCamera) return null;
 
   return (
     <div className="self-view" aria-label="Your camera">
       <VideoTrack trackRef={localCamera} />
+      <span className="self-view-label">You</span>
     </div>
   );
 }
