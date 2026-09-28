@@ -2,6 +2,7 @@ import {
   useTracks,
   VideoTrack,
   isTrackReference,
+  type TrackReference,
 } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 
@@ -15,8 +16,10 @@ export function SelfView() {
     { onlySubscribed: false }
   );
 
+  // Narrow the type: only real track references (not placeholders)
   const local = tracks.find(
-    (t) => t.participant?.isLocal && isTrackReference(t)
+    (t): t is TrackReference =>
+      isTrackReference(t) && !!t.participant?.isLocal
   );
 
   if (!local) return null;
