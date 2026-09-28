@@ -6,8 +6,8 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
 // The bundler handles this stylesheet import; TypeScript has no declaration for CSS files.
 // @ts-ignore
+import '@livekit/components-styles';
 import './styles/theme.css';
-
 import './styles/classes.css';
 
 /**

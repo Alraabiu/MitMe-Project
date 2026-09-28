@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { MonitorUp } from 'lucide-react';
+import {
+  LiveKitRoom,
+  VideoConference,
+  RoomAudioRenderer,
+  useConnectionState,
+} from '@livekit/components-react';
+import { ConnectionState } from 'livekit-client';
+import { PenTool, X } from 'lucide-react';
 import { api } from '../../services/api';
-import { getSocket } from '../../services/socket';
-import { useMeetingMedia } from '../../hooks/useMeetingMedia';
-import { useMeetingParticipants } from '../../hooks/useMeetingParticipants';
-import { useWebRTC } from '../../hooks/useWebRTC';
-import { ParticipantTile } from './ParticipantTile';
-import { MeetingControls } from './MeetingControls';
 import { WhiteboardPanel } from '../whiteboard/WhiteboardPanel';
+import { getSocket } from '../../services/socket';
 import type { Meeting, User, Whiteboard } from '../../types';
 
 interface MeetingRoomProps {
@@ -16,140 +18,192 @@ interface MeetingRoomProps {
   onLeave: () => void;
 }
 
-export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
-  const socket = getSocket();
-  const [hand, setHand] = useState(false);
-  const [share, setShare] = useState(false);
+interface MediaInfo {
+  provider: string;
+  mode: string;
+  url: string | null;
+  token: string | null;
+}
+
+export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
+  const [media, setMedia] = useState<MediaInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [board, setBoard] = useState<Whiteboard | null>(null);
 
-  const { stream, muted, camera, toggleMic, toggleCamera, stopAll } =
-    useMeetingMedia(meeting._id, socket);
+  const socket = getSocket();
 
-  const participants = useMeetingParticipants(socket, meeting._id, user);
-  const remoteStreams = useWebRTC(socket, meeting._id, user, stream);
-
-  // Join room on socket
+  // Fetch the LiveKit token when the room mounts
   useEffect(() => {
-    socket.emit('meeting:join', meeting._id);
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.post<{ media: MediaInfo }>(
+          `/meetings/${meeting._id}/join`
+        );
+        if (cancelled) return;
+        setMedia(r.data.media);
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(
+          err?.response?.data?.message || 'Could not join the meeting.'
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
-      socket.emit('meeting:leave', meeting._id);
+      cancelled = true;
     };
-  }, [socket, meeting._id]);
+  }, [meeting._id]);
 
-  const handleShare = async () => {
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      return alert('Screen sharing is not available in this browser.');
-    }
-    try {
-      const s = await navigator.mediaDevices.getDisplayMedia({ video: true });
-      setShare(true);
-      socket.emit('meeting:state', {
-        meetingId: meeting._id,
-        type: 'share',
-        value: true,
-      });
-      s.getVideoTracks()[0].onended = () => {
-        setShare(false);
-        socket.emit('meeting:state', {
-          meetingId: meeting._id,
-          type: 'share',
-          value: false,
-        });
-      };
-    } catch {
-      /* cancelled */
-    }
-  };
-
-  const toggleHand = () => {
-    const next = !hand;
-    setHand(next);
-    socket.emit('meeting:state', {
-      meetingId: meeting._id,
-      type: 'hand',
-      value: next,
-    });
-  };
+  // Leave on unmount
+  useEffect(() => {
+    return () => {
+      api.post(`/meetings/${meeting._id}/leave`).catch(() => {});
+    };
+  }, [meeting._id]);
 
   const handleLeave = () => {
-    stopAll();
     api.post(`/meetings/${meeting._id}/leave`).catch(() => {});
     onLeave();
   };
 
-  return (
-    <div className="meeting">
-      <div className="stage">
-        <div className="meetingbar">
-          <div>
-            <b>{meeting.title}</b>
-            <div className="muted" style={{ color: '#aaa' }}>
-              {meeting.code} ? {meeting.status} ? {participants.length}{' '}
-              {participants.length === 1 ? 'person' : 'people'}
-            </div>
+  if (loading) {
+    return (
+      <div className="meeting-livekit">
+        <div className="meeting-loading">
+          <div className="spinner" />
+          <div>Connecting to the meeting…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !media?.token || !media?.url) {
+    return (
+      <div className="meeting-livekit">
+        <div className="meeting-loading">
+          <div style={{ fontSize: 18, fontWeight: 700 }}>
+            Unable to join
           </div>
-          <span className="pill">{user.displayName}</span>
+          <div style={{ marginTop: 8, color: '#aaa' }}>
+            {error || 'LiveKit credentials were not provided.'}
+          </div>
+          <button
+            className="btn primary"
+            style={{ marginTop: 20 }}
+            onClick={handleLeave}
+          >
+            Back to dashboard
+          </button>
         </div>
+      </div>
+    );
+  }
 
-        <div className="tiles">
-          {participants.map((p) => {
-            const streamForThis = p.isSelf
-              ? stream
-              : remoteStreams.get(p.user._id) ?? null;
-
-            return (
-              <ParticipantTile
-                key={p.user._id}
-                user={p.user}
-                stream={streamForThis}
-                muted={p.isSelf ? muted : p.muted}
-                camera={p.isSelf ? camera : p.camera}
-                hand={p.isSelf ? hand : p.hand}
-                share={p.isSelf ? share : p.share}
-                isSelf={p.isSelf}
-              />
-            );
-          })}
-
-          {share && (
-            <div className="tile">
-              <MonitorUp size={42} />
-              <div>You are sharing your screen</div>
-              <span className="label">Screen share</span>
-            </div>
-          )}
-        </div>
-
-        <MeetingControls
-          muted={muted}
-          camera={camera}
-          share={share}
-          hand={hand}
-          whiteboardOpen={whiteboardOpen}
-          onToggleMic={toggleMic}
-          onToggleCamera={toggleCamera}
-          onToggleShare={handleShare}
-          onToggleHand={toggleHand}
-          onToggleWhiteboard={() => setWhiteboardOpen((v) => !v)}
-          onLeave={handleLeave}
-        />
+  return (
+    <div className="meeting-livekit">
+      <div className="meeting-stage">
+        <LiveKitRoom
+          serverUrl={media.url}
+          token={media.token}
+          connect
+          audio
+          video
+          onDisconnected={handleLeave}
+          data-lk-theme="default"
+          style={{ height: '100%', background: '#0e0c18' }}
+        >
+          <RoomAudioRenderer />
+          <VideoConference />
+          <MeetingRoomExtras
+            meeting={meeting}
+            onLeave={handleLeave}
+            whiteboardOpen={whiteboardOpen}
+            setWhiteboardOpen={setWhiteboardOpen}
+          />
+        </LiveKitRoom>
       </div>
 
       {whiteboardOpen && (
         <aside className="panel">
-          <h2>Collaborative whiteboard</h2>
+          <div className="panel-header">
+            <h2 style={{ margin: 0 }}>Collaborative whiteboard</h2>
+            <button
+              className="btn"
+              style={{ padding: '6px 10px' }}
+              onClick={() => setWhiteboardOpen(false)}
+            >
+              <X size={14} />
+            </button>
+          </div>
           <WhiteboardPanel
             meetingId={meeting._id}
             socket={socket}
             board={board}
             setBoard={setBoard}
           />
-          <p className="muted">
+          <p className="muted" style={{ marginTop: 12 }}>
             Changes are sent through Socket.IO and persisted in MongoDB.
           </p>
         </aside>
       )}
+    </div>
+  );
+}
+
+/**
+ * Small overlay that shows connection state and a whiteboard toggle
+ * on top of LiveKit's built-in control bar.
+ */
+function MeetingRoomExtras({
+  meeting,
+  onLeave,
+  whiteboardOpen,
+  setWhiteboardOpen,
+}: {
+  meeting: Meeting;
+  onLeave: () => void;
+  whiteboardOpen: boolean;
+  setWhiteboardOpen: (v: boolean) => void;
+}) {
+  const connectionState = useConnectionState();
+
+  return (
+    <div className="meeting-overlay">
+      <div className="meeting-overlay-top">
+        <div className="meeting-overlay-info">
+          <b>{meeting.title}</b>
+          <span> · </span>
+          <span style={{ color: '#aaa' }}>{meeting.code}</span>
+        </div>
+        <div
+          className={`meeting-status ${
+            connectionState === ConnectionState.Connected ? 'ok' : 'warn'
+          }`}
+        >
+          {connectionState}
+        </div>
+      </div>
+
+      <div className="meeting-overlay-actions">
+        <button
+          className={`meeting-tool ${whiteboardOpen ? 'active' : ''}`}
+          onClick={() => setWhiteboardOpen(!whiteboardOpen)}
+          title="Toggle whiteboard"
+        >
+          <PenTool size={18} />
+        </button>
+        <button
+          className="meeting-tool meeting-tool-leave"
+          onClick={onLeave}
+          title="Leave meeting"
+        >
+          Leave
+        </button>
+      </div>
     </div>
   );
 }

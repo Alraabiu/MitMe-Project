@@ -3,6 +3,7 @@ import MeetingParticipant from '../models/MeetingParticipant.js';
 import Whiteboard from '../models/Whiteboard.js';
 import { createMeetingCode } from '../utils/meeting.js';
 import { env } from '../config/env.js';
+import { getMediaProvider } from '../services/mediaProvider.js';
 import { asyncHandler } from '../middleware/error.js';
 
 const newCode = async () => {
@@ -40,6 +41,13 @@ export const create = asyncHandler(async (req, res) => {
     activePage: 'Page 1',
   });
 
+  try {
+    const provider = getMediaProvider();
+    await provider.createRoom({ meetingId: String(m._id), title: m.title });
+  } catch {
+    /* lazy-created on first join */
+  }
+
   res.status(201).json({ meeting: m });
 });
 
@@ -63,7 +71,10 @@ export const get = asyncHandler(async (req, res) => {
 export const join = asyncHandler(async (req, res) => {
   const key = String(req.params.id);
   const m = await Meeting.findOne({
-    $or: [{ _id: key.match(/^[a-f0-9]{24}$/i) ? key : null }, { code: key.toUpperCase() }],
+    $or: [
+      { _id: key.match(/^[a-f0-9]{24}$/i) ? key : null },
+      { code: key.toUpperCase() },
+    ],
   });
   if (!m || m.status === 'cancelled') {
     return res.status(404).json({ message: 'Meeting no longer exists' });
@@ -75,28 +86,41 @@ export const join = asyncHandler(async (req, res) => {
   m.status = 'live';
   await m.save();
 
+  const isHost = String(m.host) === String(req.user._id);
+  const isCoHost = m.coHosts.some((x) => String(x) === String(req.user._id));
+  const role = isHost ? 'host' : isCoHost ? 'cohost' : 'participant';
+
   await MeetingParticipant.findOneAndUpdate(
     { meeting: m._id, user: req.user._id },
     {
       meeting: m._id,
       user: req.user._id,
-      role:
-        String(m.host) === String(req.user._id)
-          ? 'host'
-          : m.coHosts.some((x) => String(x) === String(req.user._id))
-          ? 'cohost'
-          : 'participant',
+      role,
       joinedAt: new Date(),
       leftAt: null,
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
 
+  const provider = getMediaProvider();
+  const room = await provider.createRoom({
+    meetingId: String(m._id),
+    title: m.title,
+  });
+  const tokenPayload = await provider.createParticipantToken({
+    meetingId: String(m._id),
+    userId: String(req.user._id),
+    userName: req.user.displayName,
+    role,
+  });
+
   res.json({
     meeting: m,
     media: {
-      provider: env.SFU_PROVIDER || env.MEDIA_PROVIDER || 'webrtc',
-      mode: 'signaling',
+      provider: room.provider,
+      mode: room.mode,
+      url: room.url || tokenPayload.url || null,
+      token: tokenPayload.token || null,
     },
   });
 });

@@ -1145,3 +1145,147 @@ img {
   font-weight: 700;
   text-align: center;
 }
+
+/* ============================================================
+   LiveKit meeting room
+   ============================================================ */
+.meeting-livekit {
+  display: flex;
+  height: calc(100vh - 40px);
+  margin: 20px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #0e0c18;
+  position: relative;
+}
+
+.meeting-stage {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.meeting-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.meeting-loading .spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: #8c5cf4;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.meeting-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  z-index: 5;
+}
+
+.meeting-overlay-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.meeting-overlay-info {
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  backdrop-filter: blur(8px);
+}
+
+.meeting-status {
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  backdrop-filter: blur(8px);
+}
+
+.meeting-status.ok {
+  background: rgba(33, 166, 106, 0.7);
+}
+.meeting-status.warn {
+  background: rgba(217, 75, 101, 0.7);
+}
+
+.meeting-overlay-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+
+.meeting-tool {
+  background: rgba(41, 36, 58, 0.9);
+  border: 0;
+  color: white;
+  border-radius: 12px;
+  padding: 10px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  backdrop-filter: blur(8px);
+}
+
+.meeting-tool:hover {
+  background: rgba(60, 52, 82, 0.95);
+}
+
+.meeting-tool.active {
+  background: #5e42be;
+}
+
+.meeting-tool-leave {
+  background: rgba(217, 75, 101, 0.95);
+}
+
+.meeting-tool-leave:hover {
+  background: #c53e56;
+}
+
+/* LiveKit's built-in control bar styling */
+.meeting-livekit .lk-control-bar {
+  background: rgba(20, 17, 32, 0.85) !important;
+  backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Panel header used by the whiteboard sidebar */
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
