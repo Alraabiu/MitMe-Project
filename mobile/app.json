@@ -2,12 +2,12 @@
   "expo": {
     "name": "MitMe",
     "slug": "mitme",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "mitme",
-    "userInterfaceStyle": "automatic",
+       "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
-    "assetBundlePatterns": [
+    "assetBundlePatterns":[
       "**/*"
     ],
     "plugins": [
@@ -25,7 +25,8 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "MitMe uses your camera for video meetings."
+          "cameraPermission": "MitMe uses your camera for video meetings.",
+          "microphonePermission": "MitMe uses your microphone for meetings and voice chat."
         }
       ],
       [
@@ -56,21 +57,21 @@
             "usesCleartextTraffic": true,
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class com.reactnativegooglesignin.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class expo.modules.updates.** { *; }"
+            "extraProguardRules": "-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class com.reactnativegooglesignin.** { *; }\n-keep class com.swmansion.rnscreens.** { *; }\n-keep class expo.modules.updates.** { *; }\n-keep class com.facebook.react.** { *; }\n-keep class com.facebook.hermes.** { *; }\n-keep class com.facebook.jni.** { *; }"
           }
         }
       ],
       [
         "@react-native-google-signin/google-signin",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.REPLACE_WITH_YOUR_REVERSED_IOS_CLIENT_ID"
+          "iosUrlScheme": "com.googleusercontent.apps.497172908894-REPLACE_WITH_YOUR_IOS_SUFFIX"
         }
       ]
     ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mitme.app",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
@@ -78,6 +79,7 @@
         "NSCameraUsageDescription": "MitMe uses your camera for video meetings.",
         "NSMicrophoneUsageDescription": "MitMe uses your microphone for meetings and voice chat.",
         "NSPhotoLibraryUsageDescription": "MitMe needs access to your photos to set your avatar.",
+        "NSPhotoLibraryAddUsageDescription": "MitMe saves photos to your library.",
         "UIBackgroundModes": [
           "remote-notification",
           "audio"
@@ -86,7 +88,7 @@
     },
     "android": {
       "package": "com.mitme.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
