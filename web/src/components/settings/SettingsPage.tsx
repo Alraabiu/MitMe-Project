@@ -98,10 +98,10 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
 
   return (
     <div className="page">
+      {/* ─── Profile Card ─────────────────────────────── */}
       <div className="card form">
         <h2>Profile</h2>
 
-        {/* Avatar */}
         <div className="avatar-uploader">
           <div className="avatar-preview">
             {avatar ? (
@@ -147,7 +147,6 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
           />
         </div>
 
-        {/* Display name */}
         <label className="field">
           <span className="field-label">
             <UserIcon size={14} /> Display name
@@ -161,7 +160,6 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
           />
         </label>
 
-        {/* Bio */}
         <label className="field">
           <span className="field-label">Bio</span>
           <textarea
@@ -179,16 +177,12 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
           <div style={{ color: '#21a66a', fontSize: 13 }}>{message}</div>
         )}
 
-        <button
-          className="btn primary"
-          onClick={save}
-          disabled={saving}
-        >
+        <button className="btn primary" onClick={save} disabled={saving}>
           {saving ? 'Saving…' : 'Save changes'}
         </button>
       </div>
 
-      {/* Account section */}
+      {/* ─── Account Info ─────────────────────────────── */}
       <div className="card form" style={{ marginTop: 18 }}>
         <h2>Account</h2>
 
@@ -211,20 +205,36 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
           </div>
         )}
 
+        <div className="row">
+          <span className="muted">Role</span>
+          <span className="pill">{user.role || 'student'}</span>
+        </div>
+      </div>
+
+      {/* ─── Sign Out Card ───────────────────────────── */}
+      <div className="card form" style={{ marginTop: 18 }}>
+        <h2>Sign out</h2>
+        <p className="muted" style={{ marginBottom: 16 }}>
+          You can sign back in anytime.
+        </p>
+
         <button
           className="btn"
           onClick={handleLogout}
           style={{
-            marginTop: 16,
             color: '#d94b65',
             borderColor: '#d94b65',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: 8,
             justifyContent: 'center',
+            gap: 8,
+            width: '100%',
+            padding: '14px',
+            fontSize: 15,
           }}
         >
-          <LogOut size={16} /> Sign out
+          <LogOut size={16} />
+          Sign out
         </button>
       </div>
     </div>

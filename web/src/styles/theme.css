@@ -1444,3 +1444,156 @@ img {
   justify-content: center;
   margin-bottom: 6px;
 }
+
+/* ============================================================
+   Waiting room
+   ============================================================ */
+.meeting-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 40px);
+  margin: 20px;
+  border-radius: 22px;
+  background: radial-gradient(circle at center, #1a1730, #0e0c18);
+}
+
+.meeting-waiting-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 48px 40px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  color: #fff;
+  backdrop-filter: blur(20px);
+}
+
+.meeting-waiting-card h2 {
+  font-size: 20px;
+  margin: 20px 0 10px;
+  font-weight: 800;
+}
+
+.meeting-waiting-card p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+
+.meeting-waiting-card .muted {
+  color: #9b94b8;
+  font-size: 13px;
+}
+
+.meeting-waiting-spinner {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto;
+  border: 3px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #8c5cf4;
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ============================================================
+   Host approval panel
+   ============================================================ */
+.host-approval-panel {
+  position: absolute;
+  top: 70px;
+  right: 16px;
+  width: 300px;
+  background: rgba(20, 17, 32, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+  z-index: 20;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  color: #fff;
+}
+
+.host-approval-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #d5cfe6;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 10px;
+}
+
+.host-approval-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.host-approval-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.host-approval-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.host-approval-name {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-approval-sub {
+  font-size: 11px;
+  color: #9b94b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-approval-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #fff;
+}
+
+.host-approval-btn.admit {
+  background: #21a66a;
+}
+
+.host-approval-btn.admit:hover {
+  background: #1b8a56;
+}
+
+.host-approval-btn.reject {
+  background: #d94b65;
+}
+
+.host-approval-btn.reject:hover {
+  background: #b83b52;
+}

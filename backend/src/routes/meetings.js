@@ -1,6 +1,16 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { create, list, get, join, leave, update } from '../controllers/meetings.js';
+import {
+  create,
+  list,
+  get,
+  join,
+  leave,
+  update,
+  waiting,
+  admit,
+  reject,
+} from '../controllers/meetings.js';
 import { requireAuth } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
@@ -24,9 +34,16 @@ r.post(
   ),
   create
 );
+
 r.get('/', list);
 r.get('/:id', get);
 r.post('/:id/join', join);
+
+// Waiting room (host-only)
+r.get('/:id/waiting', waiting);
+r.post('/:id/admit/:userId', admit);
+r.post('/:id/reject/:userId', reject);
+
 r.post('/:id/leave', leave);
 r.patch('/:id', update);
 

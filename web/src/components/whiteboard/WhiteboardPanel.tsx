@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
-import { Eraser, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useWhiteboard } from '../../hooks/useWhiteboard';
 import type { Whiteboard } from '../../types';

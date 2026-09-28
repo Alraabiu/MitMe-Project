@@ -9,6 +9,8 @@ import { ConnectionState } from 'livekit-client';
 import { PenTool, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { WhiteboardPanel } from '../whiteboard/WhiteboardPanel';
+import { WaitingRoom } from './WaitingRoom';
+import { HostApprovalPanel } from './HostApprovalPanel';
 import { getSocket } from '../../services/socket';
 import type { Meeting, User, Whiteboard } from '../../types';
 
@@ -25,55 +27,79 @@ interface MediaInfo {
   token: string | null;
 }
 
+type JoinState = 'loading' | 'pending' | 'admitted' | 'error';
+
 export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
   const [media, setMedia] = useState<MediaInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [joinState, setJoinState] = useState<JoinState>('loading');
   const [error, setError] = useState('');
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
   const [board, setBoard] = useState<Whiteboard | null>(null);
+  const [admitRetry, setAdmitRetry] = useState(0);
 
   const socket = getSocket();
+  const isHost =
+    String(meeting.host?._id) === String(user._id) ||
+    user.role === 'teacher';
 
-  // Fetch LiveKit token
+  // ─── Fetch LiveKit token (or fall into waiting room) ────
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const r = await api.post<{ media: MediaInfo }>(
-          `/meetings/${meeting._id}/join`
-        );
+        const r = await api.post<{
+          status?: 'pending' | 'admitted';
+          media?: MediaInfo;
+        }>(`/meetings/${meeting._id}/join`);
+
         if (cancelled) return;
-        setMedia(r.data.media);
+
+        const status = r.data.status ?? 'admitted';
+
+        if (status === 'pending') {
+          setJoinState('pending');
+          return;
+        }
+
+        setMedia(r.data.media ?? null);
+        setJoinState('admitted');
       } catch (err: any) {
         if (cancelled) return;
         setError(
           err?.response?.data?.message || 'Could not join the meeting.'
         );
-      } finally {
-        if (!cancelled) setLoading(false);
+        setJoinState('error');
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [meeting._id]);
+  }, [meeting._id, admitRetry]);
 
-  // ─── Sync whiteboard open/close across all participants ─
+  // ─── CRITICAL: Join the socket room once admitted ───────
+  // Without this, `meeting:state` events (whiteboard open/close)
+  // never reach the participant, so their panel doesn't auto-open.
+  useEffect(() => {
+    if (!socket || joinState !== 'admitted') return;
+    socket.emit('meeting:join', meeting._id);
+    return () => {
+      socket.emit('meeting:leave', meeting._id);
+    };
+  }, [socket, meeting._id, joinState]);
+
+  // ─── Listen for whiteboard open/close from other users ─
   useEffect(() => {
     if (!socket) return;
-
     const onState = (payload: {
       userId: string;
       type: string;
       value: any;
     }) => {
-      if (payload.userId === user._id) return;
+      if (payload.userId === user._id) return; // our own, skip
       if (payload.type === 'whiteboard') {
-        // Another user opened or closed the whiteboard
         setWhiteboardOpen(!!payload.value);
       }
     };
-
     socket.on('meeting:state', onState);
     return () => {
       socket.off('meeting:state', onState);
@@ -94,7 +120,18 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
     });
   };
 
-  if (loading) {
+  // ─── WAITING ROOM ──────────────────────────────────────
+  if (joinState === 'pending') {
+    return (
+      <WaitingRoom
+        meeting={meeting}
+        onLeave={handleLeave}
+        onAdmitted={() => setAdmitRetry((n) => n + 1)}
+      />
+    );
+  }
+
+  if (joinState === 'loading') {
     return (
       <div className="meeting-livekit">
         <div className="meeting-loading">
@@ -105,7 +142,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
     );
   }
 
-  if (error || !media?.token || !media?.url) {
+  if (joinState === 'error' || !media?.token || !media?.url) {
     return (
       <div className="meeting-livekit">
         <div className="meeting-loading">
@@ -125,10 +162,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
     );
   }
 
-  const isTeacher =
-    String(meeting.host?._id) === String(user._id) ||
-    user.role === 'teacher';
-
+  // ─── ADMITTED — full meeting room ──────────────────────
   return (
     <div className="meeting-livekit">
       <div className="meeting-stage">
@@ -149,9 +183,12 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
             whiteboardOpen={whiteboardOpen}
             setWhiteboardOpen={toggleWhiteboard}
           />
+
+          {isHost && <HostApprovalPanel meetingId={meeting._id} />}
         </LiveKitRoom>
       </div>
 
+      {/* Whiteboard panel — opens for EVERY participant when toggled */}
       {whiteboardOpen && (
         <aside className="panel">
           <div className="panel-header">
@@ -169,12 +206,12 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
             socket={socket}
             board={board}
             setBoard={setBoard}
-            canClear={isTeacher}
+            canClear={isHost}
           />
           <p className="muted" style={{ marginTop: 12 }}>
-            {isTeacher
-              ? 'As a teacher, you can clear the board for everyone.'
-              : 'Changes are sent through Socket.IO and persisted in MongoDB.'}
+            {isHost
+              ? 'As the host, you can clear the board for everyone.'
+              : 'Changes are synced in real time.'}
           </p>
         </aside>
       )}
