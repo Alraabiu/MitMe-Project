@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
@@ -6,24 +6,37 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  ActivityIndicator,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import {
+  LiveKitRoom,
+  useLocalParticipant,
+  useTracks,
+  VideoView,
+  AudioSession,
+  isTrackReference,
+} from '@livekit/react-native';
+import { Track, VideoTrack } from 'livekit-client';
 import {
   Mic,
   MicOff,
   Video as VideoIcon,
   VideoOff,
-  Hand,
   PhoneOff,
   PenTool,
-  MonitorUp,
 } from 'lucide-react-native';
 import { api } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
-import { useSocket } from '../src/hooks/useSocket';
 import { colors, spacing, radii, font } from '../src/theme';
+
+interface MediaInfo {
+  provider: string;
+  mode: string;
+  url: string | null;
+  token: string | null;
+}
 
 export default function MeetingScreen() {
   const router = useRouter();
@@ -32,207 +45,228 @@ export default function MeetingScreen() {
     title?: string;
     code?: string;
   }>();
-  const { user } = useAuth();
-  const socket = useSocket();
+  useAuth(); // ensures auth context is mounted
 
-  const [permission, requestPermission] = useCameraPermissions();
-  const [facing] = useState<CameraType>('front');
-  const [cameraOn, setCameraOn] = useState(false);
-  const [muted, setMuted] = useState(true);
-  const [hand, setHand] = useState(false);
-  const [share, setShare] = useState(false);
+  const [media, setMedia] = useState<MediaInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Remote participant state (shown in the top-right indicator)
-  const [remoteMuted, setRemoteMuted] = useState(true);
-  const [remoteCamera, setRemoteCamera] = useState(false);
-  const [remoteHand, setRemoteHand] = useState(false);
-  const [remoteShare, setRemoteShare] = useState(false);
-
-  // Join room + listen for the other side's state
+  // Fetch LiveKit token on mount
   useEffect(() => {
-    if (!socket || !meetingId) return;
-
-    socket.emit('meeting:join', meetingId);
-
-    const onState = (payload: {
-      userId: string;
-      type: 'media' | 'hand' | 'share' | string;
-      value: any;
-    }) => {
-      if (payload.userId === user?._id) return; // ignore our own broadcasts
-
-      switch (payload.type) {
-        case 'media':
-          setRemoteMuted(!!payload.value?.muted);
-          setRemoteCamera(!!payload.value?.camera);
-          break;
-        case 'hand':
-          setRemoteHand(!!payload.value);
-          break;
-        case 'share':
-          setRemoteShare(!!payload.value);
-          break;
+    if (!meetingId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.post<{ media: MediaInfo }>(
+          `/meetings/${meetingId}/join`
+        );
+        if (cancelled) return;
+        setMedia(r.data.media);
+      } catch (err: any) {
+        if (cancelled) return;
+        setError(
+          err?.response?.data?.message || 'Could not join the meeting.'
+        );
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    };
-
-    socket.on('meeting:state', onState);
-
+    })();
     return () => {
-      socket.off('meeting:state', onState);
-      socket.emit('meeting:leave', meetingId);
+      cancelled = true;
     };
-  }, [socket, meetingId, user?._id]);
+  }, [meetingId]);
 
-  // Request camera permission when user turns camera on
-  useEffect(() => {
-    if (!cameraOn) return;
-    if (!permission?.granted) {
-      requestPermission().then((res) => {
-        if (!res.granted) {
-          Alert.alert('MitMe', 'Camera permission is required for video.');
-          setCameraOn(false);
-        }
-      });
+  const handleLeave = useCallback(() => {
+    if (meetingId) {
+      api.post(`/meetings/${meetingId}/leave`).catch(() => {});
     }
-  }, [cameraOn, permission, requestPermission]);
-
-  const broadcastState = useCallback(
-    (type: string, value: unknown) => {
-      if (!socket || !meetingId) return;
-      socket.emit('meeting:state', { meetingId, type, value });
-    },
-    [socket, meetingId]
-  );
-
-  const toggleMic = () => {
-    const next = !muted;
-    setMuted(next);
-    broadcastState('media', { muted: next, camera: cameraOn });
-  };
-
-  const toggleCamera = () => {
-    const next = !cameraOn;
-    setCameraOn(next);
-    broadcastState('media', { muted, camera: next });
-  };
-
-  const toggleHand = () => {
-    const next = !hand;
-    setHand(next);
-    broadcastState('hand', next);
-  };
-
-  const toggleShare = () => {
-    const next = !share;
-    setShare(next);
-    broadcastState('share', next);
-  };
-
-  const leave = async () => {
-    try {
-      if (meetingId) {
-        await api.post(`/meetings/${meetingId}/leave`);
-      }
-    } catch {
-      /* ignore */
-    }
-    socket?.emit('meeting:leave', meetingId);
     router.back();
-  };
+  }, [meetingId, router]);
 
-  const confirmLeave = () => {
-    Alert.alert('Leave meeting?', 'You can rejoin with the same code.', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Leave', style: 'destructive', onPress: leave },
-    ]);
-  };
+  if (loading) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={colors.purple} />
+          <Text style={s.loadingText}>Connecting to the meeting…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-  // Build remote state labels as plain text (no emoji, safe for ASCII)
-  const remoteLabels: string[] = [];
-  if (!remoteMuted) remoteLabels.push('Live');
-  else remoteLabels.push('Muted');
-  if (remoteCamera) remoteLabels.push('Cam On');
-  if (remoteHand) remoteLabels.push('Hand');
-  if (remoteShare) remoteLabels.push('Sharing');
-  const remoteText = remoteLabels.join(' | ');
-
-  if (!user) return null;
+  if (error || !media?.token || !media?.url) {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}>
+          <Text style={s.errorTitle}>Unable to join</Text>
+          <Text style={s.errorText}>
+            {error || 'LiveKit credentials were not provided.'}
+          </Text>
+          <Pressable style={s.leaveBtn} onPress={handleLeave}>
+            <Text style={s.leaveBtnText}>Back to meetings</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <RNStatusBar barStyle="light-content" />
 
+      <View style={s.room}>
+        <LiveKitRoom
+          serverUrl={media.url}
+          token={media.token}
+          connect
+          audio
+          video
+          onDisconnected={handleLeave}
+          onError={(err) => {
+            console.warn('[livekit] error:', err);
+            Alert.alert('MitMe', 'Meeting connection lost.');
+          }}
+        >
+          <MeetingUI
+            title={title || 'Meeting'}
+            code={code || ''}
+            onLeave={handleLeave}
+            meetingId={meetingId!}
+          />
+        </LiveKitRoom>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// ─── Inner UI (needs LiveKitRoom as parent to use hooks) ──
+function MeetingUI({
+  title,
+  code,
+  onLeave,
+  meetingId,
+}: {
+  title: string;
+  code: string;
+  onLeave: () => void;
+  meetingId: string;
+}) {
+  const router = useRouter();
+  const { localParticipant } = useLocalParticipant();
+
+  const [muted, setMuted] = useState(true);
+  const [cameraOn, setCameraOn] = useState(false);
+
+  // iOS audio session management
+  useEffect(() => {
+    (async () => {
+      try {
+        await AudioSession.startAudioSession();
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      AudioSession.stopAudioSession().catch(() => {});
+    };
+  }, []);
+
+  // All camera tracks (with placeholders for participants without camera)
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    { onlySubscribed: false }
+  );
+
+  const toggleMic = async () => {
+    const next = !muted;
+    await localParticipant.setMicrophoneEnabled(!next);
+    setMuted(next);
+  };
+
+  const toggleCamera = async () => {
+    const next = !cameraOn;
+    await localParticipant.setCameraEnabled(next);
+    setCameraOn(next);
+  };
+
+  const confirmLeave = () => {
+    Alert.alert('Leave meeting?', 'You can rejoin with the same code.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Leave', style: 'destructive', onPress: onLeave },
+    ]);
+  };
+
+  return (
+    <>
       {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>
-            {title || 'Meeting'}
+            {title}
           </Text>
-          <Text style={s.code}>{code || ''}</Text>
+          <Text style={s.code}>{code}</Text>
         </View>
         <View style={s.liveDot} />
       </View>
 
-      {/* Video stage */}
+      {/* Video tiles */}
       <View style={s.stage}>
-        {cameraOn && permission?.granted ? (
-          <CameraView style={s.camera} facing={facing} />
-        ) : (
-          <View style={s.avatarWrap}>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>
-                {user.displayName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <Text style={s.name}>{user.displayName}</Text>
-            <Text style={s.stateLabel}>{muted ? 'Muted' : 'Live'}</Text>
-          </View>
-        )}
+        <View style={s.tiles}>
+          {tracks.map((track, i) => {
+            // Placeholder tile (participant has no camera track yet)
+            if (!isTrackReference(track)) {
+              return (
+                <View key={`ph-${i}`} style={s.tile}>
+                  <View style={s.avatarPlaceholder}>
+                    <Text style={s.avatarPlaceholderText}>
+                      {(track.participant?.name ||
+                        track.participant?.identity ||
+                        '?')
+                        .charAt(0)
+                        .toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={s.tileLabel}>
+                    {track.participant?.name ||
+                      track.participant?.identity ||
+                      'Participant'}
+                    {track.participant?.isLocal ? ' (You)' : ''}
+                  </Text>
+                </View>
+              );
+            }
 
-        {/* Remote participant indicator (top-right) */}
-        <View style={s.remoteIndicator}>
-          <View
-            style={[
-              s.remoteDot,
-              { backgroundColor: remoteMuted ? '#888' : colors.green },
-            ]}
-          />
-          <Text style={s.remoteText} numberOfLines={1}>
-            Other: {remoteText}
-          </Text>
-        </View>
-
-        {/* Local overlays (top-left) */}
-        <View style={s.overlays}>
-          {muted && (
-            <View style={s.overlayPill}>
-              <MicOff size={14} color="#fff" />
-              <Text style={s.overlayText}>Muted</Text>
-            </View>
-          )}
-          {hand && (
-            <View style={[s.overlayPill, { backgroundColor: '#f0a04b' }]}>
-              <Hand size={14} color="#fff" />
-              <Text style={s.overlayText}>Raised</Text>
-            </View>
-          )}
-          {share && (
-            <View style={[s.overlayPill, { backgroundColor: colors.blue }]}>
-              <MonitorUp size={14} color="#fff" />
-              <Text style={s.overlayText}>Sharing</Text>
-            </View>
-          )}
+            // Real video tile
+            return (
+              <View
+                key={track.publication?.trackSid || `t-${i}`}
+                style={s.tile}
+              >
+                <VideoView
+                  style={s.video}
+                  videoTrack={track.publication.track as VideoTrack | undefined}
+                  mirror={track.participant?.isLocal ?? false}
+                  objectFit="cover"
+                />
+                <Text style={s.tileLabel}>
+                  {track.participant?.name ||
+                    track.participant?.identity ||
+                    'Participant'}
+                  {track.participant?.isLocal ? ' (You)' : ''}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
 
       {/* Controls */}
       <View style={s.controls}>
         <Pressable
-          style={({ pressed }) => [
-            s.control,
-            muted ? s.controlDefault : s.controlActive,
-            pressed && { opacity: 0.85 },
-          ]}
+          style={[s.control, muted ? s.controlDefault : s.controlActive]}
           onPress={toggleMic}
         >
           {muted ? (
@@ -243,11 +277,7 @@ export default function MeetingScreen() {
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [
-            s.control,
-            cameraOn ? s.controlActive : s.controlDefault,
-            pressed && { opacity: 0.85 },
-          ]}
+          style={[s.control, cameraOn ? s.controlActive : s.controlDefault]}
           onPress={toggleCamera}
         >
           {cameraOn ? (
@@ -258,35 +288,8 @@ export default function MeetingScreen() {
         </Pressable>
 
         <Pressable
-          style={({ pressed }) => [
-            s.control,
-            hand ? s.controlWarn : s.controlDefault,
-            pressed && { opacity: 0.85 },
-          ]}
-          onPress={toggleHand}
-        >
-          <Hand size={22} color="#fff" />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            s.control,
-            share ? s.controlActive : s.controlDefault,
-            pressed && { opacity: 0.85 },
-          ]}
-          onPress={toggleShare}
-        >
-          <MonitorUp size={22} color="#fff" />
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            s.control,
-            s.controlDefault,
-            pressed && { opacity: 0.85 },
-          ]}
+          style={[s.control, s.controlDefault]}
           onPress={() => {
-            if (!meetingId) return;
             router.push({
               pathname: '/meeting-whiteboard',
               params: { meetingId },
@@ -296,19 +299,48 @@ export default function MeetingScreen() {
           <PenTool size={22} color="#fff" />
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [s.leave, pressed && { opacity: 0.85 }]}
-          onPress={confirmLeave}
-        >
+        <Pressable style={[s.control, s.controlEnd]} onPress={confirmLeave}>
           <PhoneOff size={22} color="#fff" />
         </Pressable>
       </View>
-    </SafeAreaView>
+    </>
   );
 }
 
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#0e0c18' },
+  room: { flex: 1, backgroundColor: '#0e0c18' },
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.xxl,
+  },
+  loadingText: {
+    color: '#aaa',
+    marginTop: spacing.lg,
+    fontSize: font.md,
+  },
+  errorTitle: {
+    color: '#fff',
+    fontSize: font.xl,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+  },
+  errorText: {
+    color: '#aaa',
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    fontSize: font.md,
+  },
+  leaveBtn: {
+    backgroundColor: colors.purple,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radii.md,
+  },
+  leaveBtnText: { color: '#fff', fontWeight: '800' },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,57 +356,61 @@ const s = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: colors.danger,
   },
-  stage: {
+
+  stage: { flex: 1, padding: spacing.md },
+  tiles: {
     flex: 1,
-    margin: spacing.md,
-    borderRadius: radii.lg,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  tile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    aspectRatio: 3 / 4,
     backgroundColor: '#201c2e',
+    borderRadius: radii.lg,
     overflow: 'hidden',
-    alignItems: 'center',
     justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
-  camera: {
+  video: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
   },
-  avatarWrap: { alignItems: 'center' },
-  avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+  avatarPlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: colors.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
   },
-  avatarText: { color: '#fff', fontSize: 40, fontWeight: '900' },
-  name: { color: '#fff', fontSize: font.lg, fontWeight: '700' },
-  stateLabel: { color: '#aaa', marginTop: 4, fontSize: font.sm },
-  overlays: {
+  avatarPlaceholderText: {
+    color: '#fff',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  tileLabel: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  overlayPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    bottom: 8,
+    left: 8,
     backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    color: '#fff',
+    fontSize: font.sm,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 4,
     borderRadius: radii.pill,
   },
-  overlayText: { color: '#fff', fontSize: font.sm, fontWeight: '700' },
+
   controls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    flexWrap: 'wrap',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
@@ -389,37 +425,5 @@ const s = StyleSheet.create({
   },
   controlDefault: { backgroundColor: '#29243a' },
   controlActive: { backgroundColor: colors.purple },
-  controlWarn: { backgroundColor: '#f0a04b' },
-  leave: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.danger,
-  },
-  remoteIndicator: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    maxWidth: '55%',
-  },
-  remoteDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.green,
-  },
-  remoteText: {
-    color: '#fff',
-    fontSize: font.sm,
-    fontWeight: '700',
-  },
+  controlEnd: { backgroundColor: colors.danger },
 });

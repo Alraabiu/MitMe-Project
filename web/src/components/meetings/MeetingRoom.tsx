@@ -58,13 +58,6 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
     };
   }, [meeting._id]);
 
-  // Leave on unmount
-  useEffect(() => {
-    return () => {
-      api.post(`/meetings/${meeting._id}/leave`).catch(() => {});
-    };
-  }, [meeting._id]);
-
   const handleLeave = () => {
     api.post(`/meetings/${meeting._id}/leave`).catch(() => {});
     onLeave();
@@ -85,9 +78,7 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
     return (
       <div className="meeting-livekit">
         <div className="meeting-loading">
-          <div style={{ fontSize: 18, fontWeight: 700 }}>
-            Unable to join
-          </div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Unable to join</div>
           <div style={{ marginTop: 8, color: '#aaa' }}>
             {error || 'LiveKit credentials were not provided.'}
           </div>
@@ -120,7 +111,6 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
           <VideoConference />
           <MeetingRoomExtras
             meeting={meeting}
-            onLeave={handleLeave}
             whiteboardOpen={whiteboardOpen}
             setWhiteboardOpen={setWhiteboardOpen}
           />
@@ -155,55 +145,51 @@ export function MeetingRoom({ meeting, onLeave }: MeetingRoomProps) {
 }
 
 /**
- * Small overlay that shows connection state and a whiteboard toggle
- * on top of LiveKit's built-in control bar.
+ * Small non-blocking overlays:
+ *  - top-left: meeting title + code
+ *  - top-right: connection status pill
+ *  - below that: whiteboard toggle button
+ *
+ * None of these overlap LiveKit's built-in control bar, so
+ * Microphone / Camera / Share screen / Chat / Leave all stay clickable.
  */
 function MeetingRoomExtras({
   meeting,
-  onLeave,
   whiteboardOpen,
   setWhiteboardOpen,
 }: {
   meeting: Meeting;
-  onLeave: () => void;
   whiteboardOpen: boolean;
   setWhiteboardOpen: (v: boolean) => void;
 }) {
   const connectionState = useConnectionState();
 
   return (
-    <div className="meeting-overlay">
-      <div className="meeting-overlay-top">
-        <div className="meeting-overlay-info">
-          <b>{meeting.title}</b>
-          <span> · </span>
-          <span style={{ color: '#aaa' }}>{meeting.code}</span>
-        </div>
-        <div
-          className={`meeting-status ${
-            connectionState === ConnectionState.Connected ? 'ok' : 'warn'
-          }`}
-        >
-          {connectionState}
-        </div>
+    <>
+      {/* Top-left info */}
+      <div className="meeting-info-pill">
+        <b>{meeting.title}</b>
+        <span style={{ color: '#aaa' }}> · {meeting.code}</span>
       </div>
 
-      <div className="meeting-overlay-actions">
-        <button
-          className={`meeting-tool ${whiteboardOpen ? 'active' : ''}`}
-          onClick={() => setWhiteboardOpen(!whiteboardOpen)}
-          title="Toggle whiteboard"
-        >
-          <PenTool size={18} />
-        </button>
-        <button
-          className="meeting-tool meeting-tool-leave"
-          onClick={onLeave}
-          title="Leave meeting"
-        >
-          Leave
-        </button>
+      {/* Top-right status */}
+      <div
+        className={`meeting-status-pill ${
+          connectionState === ConnectionState.Connected ? 'ok' : 'warn'
+        }`}
+      >
+        {connectionState}
       </div>
-    </div>
+
+      {/* Below status: whiteboard toggle */}
+      <button
+        className={`meeting-side-btn ${whiteboardOpen ? 'active' : ''}`}
+        onClick={() => setWhiteboardOpen(!whiteboardOpen)}
+        title="Toggle whiteboard"
+      >
+        <PenTool size={18} />
+        <span>Whiteboard</span>
+      </button>
+    </>
   );
 }
