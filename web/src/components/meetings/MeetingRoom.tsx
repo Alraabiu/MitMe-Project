@@ -12,6 +12,7 @@ import { WhiteboardPanel } from '../whiteboard/WhiteboardPanel';
 import { WaitingRoom } from './WaitingRoom';
 import { HostApprovalPanel } from './HostApprovalPanel';
 import { getSocket } from '../../services/socket';
+import { SelfView } from './SelfView';
 import type { Meeting, User, Whiteboard } from '../../types';
 
 interface MeetingRoomProps {
@@ -191,6 +192,10 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
         >
           <RoomAudioRenderer />
           <VideoConference />
+
+          {/* Self-view PiP — visible while your camera is on, even during screen share */}
+          <SelfView />
+
           <MeetingRoomExtras
             meeting={meeting}
             whiteboardOpen={whiteboardOpen}

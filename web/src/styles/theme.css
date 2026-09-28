@@ -1265,3 +1265,53 @@ img {
     bottom: 90px;
   }
 }
+
+
+/* ============================================================
+   Self-view PiP (your own camera)
+   ============================================================ */
+.self-view {
+  position: absolute;
+  bottom: 96px;
+  right: 16px;
+  width: 200px;
+  height: 130px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 15;
+  background: #201c2e;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.self-view:hover {
+  border-color: rgba(140, 92, 244, 0.6);
+  box-shadow: 0 12px 36px rgba(140, 92, 244, 0.35);
+}
+
+.self-view video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .self-view {
+    width: 160px;
+    height: 110px;
+    bottom: 90px;
+    right: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .self-view {
+    width: 110px;
+    height: 82px;
+    bottom: 84px;
+    right: 10px;
+    border-radius: 10px;
+  }
+}
