@@ -9,18 +9,33 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mitme-project.onrender.com/api",
+        "EXPO_PUBLIC_SOCKET_URL": "https://mitme-project.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "497172900894-fm6elu1kldnt1jk13iaa0qg6n0m2n2ha.apps.googleusercontent.com"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mitme-project.onrender.com/api",
+        "EXPO_PUBLIC_SOCKET_URL": "https://mitme-project.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "497172900894-fm6elu1kldnt1jk13iaa0qg6n0m2n2ha.apps.googleusercontent.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://mitme-project.onrender.com/api",
+        "EXPO_PUBLIC_SOCKET_URL": "https://mitme-project.onrender.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "497172900894-fm6elu1kldnt1jk13iaa0qg6n0m2n2ha.apps.googleusercontent.com"
       }
     }
   }
