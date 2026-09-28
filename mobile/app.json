@@ -14,14 +14,20 @@
       "expo-router",
       "expo-secure-store",
       "expo-font",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/splash.png",
-          "resizeMode": "contain",
-          "backgroundColor": "#FFFFFF"
-        }
-      ],
+     [
+  "expo-splash-screen",
+  {
+    "image": "./assets/splash.png",
+    "imageWidth": 240,
+    "resizeMode": "contain",
+    "backgroundColor": "#FFFFFF",
+    "dark": {
+      "image": "./assets/splash.png",
+      "imageWidth": 240,
+      "backgroundColor": "#FFFFFF"
+    }
+  }
+],
       [
         "expo-camera",
         {

@@ -14,7 +14,7 @@ interface Props {
 type View =
   | { type: 'list' }
   | { type: 'create' }
-  | { type: 'join' }
+  | { type: 'join'; code?: string }
   | { type: 'detail'; classId: string };
 
 export function ClassesPage({ user, onOpenMeeting }: Props) {
@@ -34,14 +34,22 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
       setClasses(list);
     } catch (err: any) {
       setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          'Unable to load classes.'
+        err?.response?.data?.message || err?.message || 'Unable to load classes.'
       );
     } finally {
       setLoading(false);
     }
   }, []);
+
+  /* ─── Auto-handle ?join=CODE on mount ────────────── */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('join');
+    if (code && isStudent) {
+      setView({ type: 'join', code: code.toUpperCase() });
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [isStudent]);
 
   useEffect(() => {
     if (view.type === 'list') load();
@@ -50,9 +58,7 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
   if (view.type === 'create') {
     return (
       <CreateClassForm
-        onCreated={(cls) => {
-          setView({ type: 'detail', classId: cls._id });
-        }}
+        onCreated={(cls) => setView({ type: 'detail', classId: cls._id })}
         onCancel={() => setView({ type: 'list' })}
       />
     );
@@ -61,9 +67,8 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
   if (view.type === 'join') {
     return (
       <JoinClassForm
-        onJoined={(cls) => {
-          setView({ type: 'detail', classId: cls._id });
-        }}
+        initialCode={view.code}
+        onJoined={(cls) => setView({ type: 'detail', classId: cls._id })}
         onCancel={() => setView({ type: 'list' })}
       />
     );

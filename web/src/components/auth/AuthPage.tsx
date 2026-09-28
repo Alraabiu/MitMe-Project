@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { api, setToken } from '../../services/api';
 import type { AuthResponse, User } from '../../types';
 import { Logo } from '../common/Logo';
+import { GoogleLoginButton } from './GoogleLoginButton';
 
 interface AuthPageProps {
   onLogin: (user: User) => void;
@@ -56,7 +57,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
     try {
       const url = mode === 'login' ? '/auth/login' : '/auth/register';
 
-      // ─── Build a clean payload ───────────────────────────────
+      // Build a clean payload.
       // Never send empty strings for optional fields — Zod rejects them.
       let body: Record<string, string>;
 
@@ -97,8 +98,10 @@ export function AuthPage({ onLogin }: AuthPageProps) {
   return (
     <div className="auth">
       <div className="auth-card">
-       <Logo variant="full" height={110} />
-        <h1>{mode === 'login' ? 'Welcome back' : 'Create your MitMe account'}</h1>
+        <Logo variant="full" height={110} />
+        <h1>
+          {mode === 'login' ? 'Welcome back' : 'Create your MitMe account'}
+        </h1>
         <p className="muted">
           Meet people, collaborate and share from one place.
         </p>
@@ -176,6 +179,12 @@ export function AuthPage({ onLogin }: AuthPageProps) {
               : 'Create account'}
           </button>
         </form>
+
+        {/* Google Sign-In */}
+        <GoogleLoginButton
+          onSuccess={onLogin}
+          onError={(msg) => setError(msg)}
+        />
 
         <div className="login-switch">
           {mode === 'login' ? 'New to MitMe?' : 'Already have an account?'}{' '}

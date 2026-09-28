@@ -74,3 +74,41 @@ export async function joinMeeting(meetingId: string): Promise<Meeting> {
   if (!m) throw new Error('Meeting join failed');
   return m;
 }
+
+/* =========================================================
+   SHARE HELPERS
+   ========================================================= */
+
+/**
+ * Public HTTPS base for share links.
+ * Web share links use the same public base as mobile so
+ * the URL works everywhere (WhatsApp, SMS, email, etc.).
+ */
+const PUBLIC_WEB_BASE = 'https://mitme-project.onrender.com';
+
+/**
+ * Build a shareable link for a class.
+ * On web we use the ?join=CODE query string so the receiving
+ * browser/tab can auto-open the join form.
+ */
+export function buildClassShareLink(code: string): string {
+  return `${PUBLIC_WEB_BASE}/join/${code.toUpperCase()}`;
+}
+
+/**
+ * Friendly message for share sheets and clipboard copies.
+ */
+export function buildClassShareMessage(
+  className: string,
+  code: string
+): string {
+  const link = buildClassShareLink(code);
+  return [
+    `You're invited to join "${className}" on MitMe.`,
+    '',
+    `Tap this link to join:`,
+    link,
+    '',
+    `Or enter the class code manually: ${code}`,
+  ].join('\n');
+}

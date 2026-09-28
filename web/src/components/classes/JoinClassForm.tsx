@@ -3,12 +3,13 @@ import { joinClass } from '../../services/classes';
 import type { ClassItem } from '../../types';
 
 interface Props {
+  initialCode?: string;
   onJoined: (cls: ClassItem) => void;
   onCancel: () => void;
 }
 
-export function JoinClassForm({ onJoined, onCancel }: Props) {
-  const [code, setCode] = useState('');
+export function JoinClassForm({ initialCode = '', onJoined, onCancel }: Props) {
+  const [code, setCode] = useState(initialCode.toUpperCase());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +29,7 @@ export function JoinClassForm({ onJoined, onCancel }: Props) {
       onJoined(cls);
     } catch (err: any) {
       setError(
-        err?.response?.data?.message ||
-          err?.message ||
-          'Unable to join class.'
+        err?.response?.data?.message || err?.message || 'Unable to join class.'
       );
     } finally {
       setBusy(false);
@@ -45,7 +44,7 @@ export function JoinClassForm({ onJoined, onCancel }: Props) {
 
       <h1 className="classFormTitle">Join a Class</h1>
       <p className="classFormSub">
-        Ask your teacher for the class code and enter it below.
+        Ask your teacher for the class code, or open the share link they sent you.
       </p>
 
       <form onSubmit={submit}>

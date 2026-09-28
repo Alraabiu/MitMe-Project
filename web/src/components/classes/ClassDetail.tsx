@@ -1,6 +1,8 @@
 ﻿import { useCallback, useEffect, useState } from 'react';
 import {
   archiveClass,
+  buildClassShareLink,
+  buildClassShareMessage,
   endClassMeeting,
   getActiveClassMeeting,
   getClass,
@@ -23,6 +25,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   const role = String(user?.role || 'student').toLowerCase();
   const isStudent = role === 'student';
@@ -55,6 +58,41 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
     return () => clearInterval(interval);
   }, [classId, load]);
 
+  /* ─── Share handlers ─────────────────────────────── */
+
+  const copyCode = async () => {
+    if (!cls) return;
+    await navigator.clipboard.writeText(cls.code);
+    setCopied('code');
+    setTimeout(() => setCopied(null), 1800);
+  };
+
+  const copyLink = async () => {
+    if (!cls) return;
+    await navigator.clipboard.writeText(buildClassShareLink(cls.code));
+    setCopied('link');
+    setTimeout(() => setCopied(null), 1800);
+  };
+
+  const shareClass = async () => {
+    if (!cls) return;
+    const text = buildClassShareMessage(cls.name, cls.code);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: cls.name, text });
+        return;
+      } catch {
+        /* user cancelled — fall through to clipboard */
+      }
+    }
+
+    await navigator.clipboard.writeText(text);
+    alert('Invite message copied to clipboard!');
+  };
+
+  /* ─── Live class ─────────────────────────────────── */
+
   const handleStartLive = async () => {
     try {
       setBusy(true);
@@ -81,9 +119,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   };
 
   const handleEndLive = async () => {
-    if (!window.confirm('End the live session? Students will be disconnected.')) {
-      return;
-    }
+    if (!window.confirm('End the live session? Students will be disconnected.')) return;
     try {
       await endClassMeeting(classId);
       setMeeting(null);
@@ -91,6 +127,8 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
       alert(err?.response?.data?.message || 'Unable to end session.');
     }
   };
+
+  /* ─── Membership ─────────────────────────────────── */
 
   const handleLeave = async () => {
     if (!window.confirm('Leave this class? You will need the code to rejoin.')) return;
@@ -115,9 +153,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   const handleRemoveStudent = async (stu: ClassStudent | string) => {
     const sid = typeof stu === 'string' ? stu : stu._id;
     const nm =
-      typeof stu === 'string'
-        ? 'this student'
-        : stu.displayName || stu.username;
+      typeof stu === 'string' ? 'this student' : stu.displayName || stu.username;
     if (!window.confirm(`Remove ${nm} from this class?`)) return;
     try {
       await removeStudent(classId, sid);
@@ -127,18 +163,14 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
     }
   };
 
-  if (loading) {
-    return <div className="classesLoading">Loading class...</div>;
-  }
-
-  if (!cls) {
-    return <div className="classesLoading">Class not found.</div>;
-  }
+  if (loading) return <div className="classesLoading">Loading class...</div>;
+  if (!cls) return <div className="classesLoading">Class not found.</div>;
 
   const students: (ClassStudent | string)[] = Array.isArray(cls.students)
     ? cls.students
     : [];
   const isLive = Boolean(meeting);
+  const shareLink = buildClassShareLink(cls.code);
 
   return (
     <div className="classDetailWrap">
@@ -162,25 +194,38 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
           <div className="classDetailHeroSubject">{cls.subject}</div>
         ) : null}
 
-        <div className="classDetailCodeBadge">
-          <div className="classDetailCodeLabel">Class Code</div>
-          <div className="classDetailCodeValue">{cls.code}</div>
+        {/* Share card */}
+        <div className="classShareCard">
+          <div className="classShareRow">
+            <div className="classShareLabel">Code</div>
+            <div className="classShareValue">{cls.code}</div>
+            <button className="classShareCopy" onClick={copyCode}>
+              {copied === 'code' ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+
+          <div className="classShareRow">
+            <div className="classShareLabel">Link</div>
+            <div className="classShareLinkText">{shareLink}</div>
+            <button className="classShareCopy" onClick={copyLink}>
+              {copied === 'link' ? 'Copied!' : 'Copy'}
+            </button>
+          </div>
+
+          <button className="classShareBtn" onClick={shareClass}>
+            Share with class
+          </button>
         </div>
       </div>
 
-      {/* Live teaching */}
+      {/* Live Teaching (teacher) */}
       {isOwner && (
         <div className="classLiveSection">
           <h3 className="classLiveSectionTitle">Live Teaching</h3>
-
           <div className="classLiveRow">
             {isLive ? (
               <>
-                <button
-                  className="classesBtn"
-                  onClick={handleJoinLive}
-                  disabled={busy}
-                >
+                <button className="classesBtn" onClick={handleJoinLive} disabled={busy}>
                   Rejoin Live Class
                 </button>
                 <button
@@ -192,33 +237,23 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
                 </button>
               </>
             ) : (
-              <button
-                className="classesBtn"
-                onClick={handleStartLive}
-                disabled={busy}
-              >
+              <button className="classesBtn" onClick={handleStartLive} disabled={busy}>
                 {busy ? 'Starting...' : 'Start Live Class'}
               </button>
             )}
           </div>
-
           <div className="classLiveHint">
-            Whiteboard, screen share and mic controls are inside the live
-            session.
+            Whiteboard, screen share and mic controls are inside the live session.
           </div>
         </div>
       )}
 
+      {/* Teacher live indicator for students */}
       {isStudent && isLive && (
         <div className="classLiveSection">
           <h3 className="classLiveSectionTitle">Teacher is live now</h3>
-          <button
-            className="classesBtn"
-            onClick={handleJoinLive}
-            disabled={busy}
-          >
-            Join Live Class with{' '}
-            {meeting?.host?.displayName || 'Teacher'}
+          <button className="classesBtn" onClick={handleJoinLive} disabled={busy}>
+            Join Live Class with {meeting?.host?.displayName || 'Teacher'}
           </button>
         </div>
       )}
@@ -249,7 +284,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
 
         {students.length === 0 ? (
           <p className="classDetailCardText" style={{ fontStyle: 'italic' }}>
-            No students have joined yet.
+            No students have joined yet. Share the code or link above.
           </p>
         ) : (
           students.map((stu, idx) => {
@@ -267,9 +302,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="classStudentName">{name}</div>
-                  {email ? (
-                    <div className="classStudentMeta">{email}</div>
-                  ) : null}
+                  {email ? <div className="classStudentMeta">{email}</div> : null}
                 </div>
                 {isOwner && (
                   <button
@@ -288,18 +321,12 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
       {/* Actions */}
       <div className="classFormActions">
         {isOwner && (
-          <button
-            className="classesBtn classesBtnDanger"
-            onClick={handleArchive}
-          >
+          <button className="classesBtn classesBtnDanger" onClick={handleArchive}>
             Archive Class
           </button>
         )}
         {isStudent && (
-          <button
-            className="classesBtn classesBtnDanger"
-            onClick={handleLeave}
-          >
+          <button className="classesBtn classesBtnDanger" onClick={handleLeave}>
             Leave Class
           </button>
         )}
