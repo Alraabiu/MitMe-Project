@@ -8,25 +8,37 @@ import { Track } from 'livekit-client';
 
 /**
  * Floating picture-in-picture view of your own camera.
- * Always visible while your camera is on — matches Google Meet behavior.
+ * Visible ONLY while you are sharing your screen — so you can see
+ * yourself alongside the shared content, matching Google Meet.
  */
 export function SelfView() {
   const tracks = useTracks(
-    [{ source: Track.Source.Camera, withPlaceholder: false }],
+    [
+      { source: Track.Source.Camera, withPlaceholder: false },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
     { onlySubscribed: false }
   );
 
-  // Narrow the type: only real track references (not placeholders)
-  const local = tracks.find(
-    (t): t is TrackReference =>
-      isTrackReference(t) && !!t.participant?.isLocal
+  // Are we (the local user) currently sharing our screen?
+  const isSharingScreen = tracks.some(
+    (t) => t.participant?.isLocal && t.source === Track.Source.ScreenShare
   );
 
-  if (!local) return null;
+  // Are we publishing our own camera?
+  const localCamera = tracks.find(
+    (t): t is TrackReference =>
+      isTrackReference(t) &&
+      !!t.participant?.isLocal &&
+      t.source === Track.Source.Camera
+  );
+
+  // Only render during screen share, and only if camera is on
+  if (!isSharingScreen || !localCamera) return null;
 
   return (
     <div className="self-view" aria-label="Your camera">
-      <VideoTrack trackRef={local} />
+      <VideoTrack trackRef={localCamera} />
     </div>
   );
 }
