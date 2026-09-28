@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   LiveKitRoom,
   VideoConference,
@@ -38,9 +38,24 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
   const [admitRetry, setAdmitRetry] = useState(0);
 
   const socket = getSocket();
-  const isHost =
-    String(meeting.host?._id) === String(user._id) ||
-    user.role === 'teacher';
+
+  // ─── Host detection ─────────────────────────────────────
+  // meeting.host can be:
+  //   - an ObjectId string (from POST /meetings or POST /meetings/:id/join)
+  //   - a populated user object with _id (from GET /meetings list)
+  const isHost = useMemo(() => {
+    const hostId =
+      typeof meeting.host === 'object' && meeting.host !== null
+        ? (meeting.host as { _id?: string })._id
+        : (meeting.host as unknown as string);
+
+    if (String(hostId) === String(user._id)) return true;
+
+    // Also treat teacher/admin as hosts for co-management
+    if (user.role === 'teacher' || user.role === 'admin') return true;
+
+    return false;
+  }, [meeting.host, user._id, user.role]);
 
   // ─── Fetch LiveKit token (or fall into waiting room) ────
   useEffect(() => {
@@ -76,9 +91,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
     };
   }, [meeting._id, admitRetry]);
 
-  // ─── CRITICAL: Join the socket room once admitted ───────
-  // Without this, `meeting:state` events (whiteboard open/close)
-  // never reach the participant, so their panel doesn't auto-open.
+  // ─── Join the socket room once admitted ─────────────────
   useEffect(() => {
     if (!socket || joinState !== 'admitted') return;
     socket.emit('meeting:join', meeting._id);
@@ -95,7 +108,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
       type: string;
       value: any;
     }) => {
-      if (payload.userId === user._id) return; // our own, skip
+      if (payload.userId === user._id) return;
       if (payload.type === 'whiteboard') {
         setWhiteboardOpen(!!payload.value);
       }
@@ -184,6 +197,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
             setWhiteboardOpen={toggleWhiteboard}
           />
 
+          {/* Host/teacher/admin always sees the waiting room panel */}
           {isHost && <HostApprovalPanel meetingId={meeting._id} />}
         </LiveKitRoom>
       </div>
