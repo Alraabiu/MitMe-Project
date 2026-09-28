@@ -12,8 +12,10 @@ import {
 } from '../utils/tokens.js';
 import { asyncHandler } from '../middleware/error.js';
 
+// ─── Google OAuth client ─────────────────────────────────────
 const googleClient = new OAuth2Client(env.GOOGLE_WEB_CLIENT_ID);
 
+// ─── Session issuer ─────────────────────────────────────────
 const issue = async (user, req) => {
   const jti = crypto.randomUUID();
   const refresh = signRefresh(user, jti);
@@ -28,6 +30,7 @@ const issue = async (user, req) => {
     expiresAt: new Date(Date.now() + env.REFRESH_TTL_MS),
   });
 
+  // Prune old sessions beyond the limit
   const sessions = await Session.find({ user: user._id, revokedAt: null })
     .sort({ createdAt: -1 })
     .skip(env.MAX_SESSIONS_PER_USER)
@@ -46,6 +49,7 @@ const issue = async (user, req) => {
   };
 };
 
+// ─── Helper: generate a unique username from an email ───────
 const generateUniqueUsername = async (email, name) => {
   let base = String(email?.split('@')[0] || name || 'user')
     .toLowerCase()
@@ -67,6 +71,7 @@ const generateUniqueUsername = async (email, name) => {
   return username;
 };
 
+// ─── POST /api/auth/register ─────────────────────────────────
 export const register = asyncHandler(async (req, res) => {
   const { displayName, username, email, phone, password, role } = req.body;
   const allowedRoles = ['student', 'teacher'];
@@ -116,6 +121,7 @@ export const register = asyncHandler(async (req, res) => {
   }
 });
 
+// ─── POST /api/auth/login ────────────────────────────────────
 export const login = asyncHandler(async (req, res) => {
   const { identifier, password } = req.body;
   const id = String(identifier).toLowerCase();
@@ -143,11 +149,15 @@ export const login = asyncHandler(async (req, res) => {
   res.json(await issue(user, req));
 });
 
+// ─── POST /api/auth/google ───────────────────────────────────
 export const googleAuth = asyncHandler(async (req, res) => {
-  const { idToken } = req.body;
+  const { credential, idToken } = req.body;
+  const token = credential || idToken;
 
-  if (!idToken) {
-    return res.status(400).json({ message: 'Google ID token is required' });
+  if (!token) {
+    return res
+      .status(400)
+      .json({ message: 'Google credential or ID token is required' });
   }
 
   if (!env.GOOGLE_WEB_CLIENT_ID) {
@@ -156,10 +166,11 @@ export const googleAuth = asyncHandler(async (req, res) => {
       .json({ message: 'Google Sign-In is not configured on the server' });
   }
 
+  // Verify the Google ID token
   let payload;
   try {
     const ticket = await googleClient.verifyIdToken({
-      idToken,
+      idToken: token,
       audience: env.GOOGLE_WEB_CLIENT_ID,
     });
     payload = ticket.getPayload();
@@ -175,16 +186,19 @@ export const googleAuth = asyncHandler(async (req, res) => {
   const { email, name, picture, sub: googleId } = payload;
   const normalizedEmail = email.toLowerCase();
 
+  // Prefer googleId match, fallback to email match
   let user = await User.findOne({ googleId });
 
   if (!user) {
     user = await User.findOne({ email: normalizedEmail });
 
     if (user) {
+      // Link Google account to existing email user
       user.googleId = googleId;
       if (!user.avatarUrl && picture) user.avatarUrl = picture;
       await user.save();
     } else {
+      // Create a new user
       const username = await generateUniqueUsername(normalizedEmail, name);
       user = await User.create({
         displayName: name || username,
@@ -208,6 +222,7 @@ export const googleAuth = asyncHandler(async (req, res) => {
   res.json(await issue(user, req));
 });
 
+// ─── POST /api/auth/refresh ──────────────────────────────────
 export const refresh = asyncHandler(async (req, res) => {
   const refreshToken = req.body?.refreshToken;
   if (!refreshToken) {
@@ -231,6 +246,7 @@ export const refresh = asyncHandler(async (req, res) => {
     return res.status(401).json({ message: 'Refresh session expired' });
   }
 
+  // Rotate
   session.revokedAt = new Date();
   await session.save();
 
@@ -242,6 +258,7 @@ export const refresh = asyncHandler(async (req, res) => {
   res.json(await issue(user, req));
 });
 
+// ─── POST /api/auth/logout ───────────────────────────────────
 export const logout = asyncHandler(async (req, res) => {
   const refreshToken = req.body?.refreshToken;
 
@@ -251,6 +268,7 @@ export const logout = asyncHandler(async (req, res) => {
       { revokedAt: new Date() }
     );
   } else {
+    // No token provided — revoke all sessions (safer default)
     await Session.updateMany(
       { user: req.user._id, revokedAt: null },
       { revokedAt: new Date() }
@@ -260,6 +278,7 @@ export const logout = asyncHandler(async (req, res) => {
   res.json({ success: true });
 });
 
+// ─── GET /api/auth/me ────────────────────────────────────────
 export const me = asyncHandler(async (req, res) => {
   res.json({ user: req.user });
 });

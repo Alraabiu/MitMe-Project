@@ -15,6 +15,7 @@ import { env } from '../config/env.js';
 
 const r = Router();
 
+// ─── Rate limiter for auth endpoints ─────────────────────────
 const authLimiter = rateLimit({
   windowMs: env.RATE_LIMIT_WINDOW_MS,
   max: env.AUTH_RATE_LIMIT_MAX,
@@ -22,6 +23,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// ─── Schemas ─────────────────────────────────────────────────
 const creds = z.object({
   identifier: z.string().min(2),
   password: z.string().min(8),
@@ -36,14 +38,25 @@ const reg = z.object({
   role: z.enum(['student', 'teacher']).optional(),
 });
 
-const googleBody = z.object({
-  idToken: z.string().min(20),
-});
+// Accept either `credential` (Google frontend) or `idToken` (mobile)
+const googleBody = z
+  .object({
+    credential: z.string().min(20).optional(),
+    idToken: z.string().min(20).optional(),
+  })
+  .refine((data) => data.credential || data.idToken, {
+    message: 'Either credential or idToken is required',
+  });
 
+// ─── Routes ──────────────────────────────────────────────────
 r.post('/register', authLimiter, validate(reg), register);
 r.post('/login', authLimiter, validate(creds), login);
 r.post('/google', authLimiter, validate(googleBody), googleAuth);
-r.post('/refresh', validate(z.object({ refreshToken: z.string().min(20) })), refresh);
+r.post(
+  '/refresh',
+  validate(z.object({ refreshToken: z.string().min(20) })),
+  refresh
+);
 r.post('/logout', requireAuth, logout);
 r.get('/me', requireAuth, me);
 

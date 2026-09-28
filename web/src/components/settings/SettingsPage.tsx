@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
-import { Camera, User as UserIcon } from 'lucide-react';
-import { api } from '../../services/api';
+import { Camera, LogOut, User as UserIcon } from 'lucide-react';
+import { api, setToken } from '../../services/api';
+import { disconnectSocket } from '../../services/socket';
 import type { User } from '../../types';
 
 interface SettingsPageProps {
   user: User;
-  setUser: (u: User) => void;
+  setUser: (u: User | null) => void;
 }
 
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -59,9 +60,8 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
       if (bio.trim() !== (user.bio || '')) {
         payload.bio = bio.trim();
       }
-      // Send avatarUrl even if empty, so removal works
       if (avatar !== (user.avatarUrl || '')) {
-        payload.avatarUrl = avatar; // may be '' to remove
+        payload.avatarUrl = avatar;
       }
 
       if (Object.keys(payload).length === 0) {
@@ -80,6 +80,18 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLogout = async () => {
+    if (!confirm('Sign out of MitMe?')) return;
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      /* ignore */
+    }
+    setToken(null, null);
+    disconnectSocket();
+    setUser(null);
   };
 
   const initial = (user.displayName || '?').slice(0, 1).toUpperCase();
@@ -173,6 +185,46 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
           disabled={saving}
         >
           {saving ? 'Saving…' : 'Save changes'}
+        </button>
+      </div>
+
+      {/* Account section */}
+      <div className="card form" style={{ marginTop: 18 }}>
+        <h2>Account</h2>
+
+        <div className="row">
+          <span className="muted">Username</span>
+          <span className="pill">@{user.username}</span>
+        </div>
+
+        {user.email && (
+          <div className="row">
+            <span className="muted">Email</span>
+            <span>{user.email}</span>
+          </div>
+        )}
+
+        {user.phone && (
+          <div className="row">
+            <span className="muted">Phone</span>
+            <span>{user.phone}</span>
+          </div>
+        )}
+
+        <button
+          className="btn"
+          onClick={handleLogout}
+          style={{
+            marginTop: 16,
+            color: '#d94b65',
+            borderColor: '#d94b65',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            justifyContent: 'center',
+          }}
+        >
+          <LogOut size={16} /> Sign out
         </button>
       </div>
     </div>

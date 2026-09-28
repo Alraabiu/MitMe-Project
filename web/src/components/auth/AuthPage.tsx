@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 import { api, setToken } from '../../services/api';
 import type { AuthResponse, User } from '../../types';
 import { Logo } from '../common/Logo';
-import { GoogleLoginButton } from './GoogleLoginButton';
 
 interface AuthPageProps {
   onLogin: (user: User) => void;
@@ -18,15 +18,7 @@ interface FormState {
   phone: string;
 }
 
-interface ValidationIssue {
-  path: (string | number)[];
-  message: string;
-}
-
-interface ApiErrorBody {
-  message?: string;
-  issues?: ValidationIssue[];
-}
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
 export function AuthPage({ onLogin }: AuthPageProps) {
   const [mode, setMode] = useState<Mode>('login');
@@ -57,8 +49,6 @@ export function AuthPage({ onLogin }: AuthPageProps) {
     try {
       const url = mode === 'login' ? '/auth/login' : '/auth/register';
 
-      // Build a clean payload.
-      // Never send empty strings for optional fields — Zod rejects them.
       let body: Record<string, string>;
 
       if (mode === 'login') {
@@ -80,22 +70,40 @@ export function AuthPage({ onLogin }: AuthPageProps) {
       setToken(data.accessToken, data.refreshToken);
       onLogin(data.user);
     } catch (err: unknown) {
-      const apiErr = err as { response?: { data?: ApiErrorBody } };
-      const body = apiErr.response?.data;
-      const baseMessage = body?.message || 'Unable to continue';
-      const detail = body?.issues?.length
-        ? ' — ' +
-          body.issues
-            .map((i) => `${i.path.join('.')}: ${i.message}`)
-            .join('; ')
-        : '';
-      setError(baseMessage + detail);
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setError(apiErr.response?.data?.message || 'Unable to continue');
     } finally {
       setSubmitting(false);
     }
   };
 
-  return (
+  const handleGoogleSuccess = async (credentialResponse: {
+    credential?: string;
+  }) => {
+    if (!credentialResponse.credential) {
+      setError('Google sign-in failed.');
+      return;
+    }
+
+    setError('');
+    setSubmitting(true);
+    try {
+      const { data } = await api.post<AuthResponse>('/auth/google', {
+        credential: credentialResponse.credential,
+      });
+      setToken(data.accessToken, data.refreshToken);
+      onLogin(data.user);
+    } catch (err: unknown) {
+      const apiErr = err as { response?: { data?: { message?: string } } };
+      setError(
+        apiErr.response?.data?.message || 'Google sign-in failed.'
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const content = (
     <div className="auth">
       <div className="auth-card">
         <Logo variant="full" height={110} />
@@ -114,7 +122,6 @@ export function AuthPage({ onLogin }: AuthPageProps) {
                 placeholder="Full name"
                 value={form.displayName}
                 onChange={update('displayName')}
-                autoComplete="name"
                 required
                 minLength={2}
                 maxLength={80}
@@ -124,7 +131,6 @@ export function AuthPage({ onLogin }: AuthPageProps) {
                 placeholder="Username"
                 value={form.username}
                 onChange={update('username')}
-                autoComplete="username"
                 required
                 minLength={3}
                 maxLength={30}
@@ -180,11 +186,23 @@ export function AuthPage({ onLogin }: AuthPageProps) {
           </button>
         </form>
 
-        {/* Google Sign-In */}
-        <GoogleLoginButton
-          onSuccess={onLogin}
-          onError={(msg) => setError(msg)}
-        />
+        {GOOGLE_CLIENT_ID && (
+          <>
+            <div className="auth-divider">
+              <span>or continue with</span>
+            </div>
+            <div className="auth-google">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => setError('Google sign-in was cancelled.')}
+                theme="outline"
+                shape="pill"
+                size="large"
+                width="320"
+              />
+            </div>
+          </>
+        )}
 
         <div className="login-switch">
           {mode === 'login' ? 'New to MitMe?' : 'Already have an account?'}{' '}
@@ -194,5 +212,13 @@ export function AuthPage({ onLogin }: AuthPageProps) {
         </div>
       </div>
     </div>
+  );
+
+  return GOOGLE_CLIENT_ID ? (
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      {content}
+    </GoogleOAuthProvider>
+  ) : (
+    content
   );
 }
