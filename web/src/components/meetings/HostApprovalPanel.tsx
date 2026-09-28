@@ -3,6 +3,7 @@ import { Check, UserCheck, X } from 'lucide-react';
 import { api } from '../../services/api';
 import { getSocket } from '../../services/socket';
 import { Avatar } from '../common/Avatar';
+import { useNotificationSound } from '../../hooks/useNotificationSound';
 
 interface WaitingParticipant {
   _id: string;
@@ -22,10 +23,28 @@ interface HostApprovalPanelProps {
 export function HostApprovalPanel({ meetingId }: HostApprovalPanelProps) {
   const socket = getSocket();
   const [requests, setRequests] = useState<WaitingParticipant[]>([]);
+  const { play, unlock } = useNotificationSound();
 
-  // Subscribe to the requests room + load initial list
+  // ─── Unlock audio on first user gesture ──────────────────
+  // Must be a top-level effect (NOT nested inside another effect).
   useEffect(() => {
-    // Initial load via HTTP (works even if host just opened the page)
+    const handler = () => {
+      unlock();
+      window.removeEventListener('pointerdown', handler);
+      window.removeEventListener('keydown', handler);
+    };
+    window.addEventListener('pointerdown', handler, { once: true });
+    window.addEventListener('keydown', handler, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handler);
+      window.removeEventListener('keydown', handler);
+    };
+  }, [unlock]);
+
+  // ─── Subscribe to the waiting-requests room ──────────────
+  useEffect(() => {
+    // Load any already-pending participants (in case the host
+    // opened the page after a request was made).
     api
       .get<{ waiting: WaitingParticipant[] }>(`/meetings/${meetingId}/waiting`)
       .then((r) => setRequests(r.data.waiting))
@@ -52,10 +71,14 @@ export function HostApprovalPanel({ meetingId }: HostApprovalPanelProps) {
       };
     }) => {
       if (payload.meetingId !== meetingId) return;
+
+      let isNew = false;
+
       setRequests((prev) => {
         if (prev.some((p) => p.user._id === payload.participant._id)) {
           return prev;
         }
+        isNew = true;
         return [
           ...prev,
           {
@@ -65,6 +88,9 @@ export function HostApprovalPanel({ meetingId }: HostApprovalPanelProps) {
           },
         ];
       });
+
+      // 🔊 Chime only for genuinely new requests
+      if (isNew) play('request');
     };
 
     socket.on('meeting:pending-list', onList);
@@ -75,7 +101,7 @@ export function HostApprovalPanel({ meetingId }: HostApprovalPanelProps) {
       socket.off('meeting:pending-list', onList);
       socket.off('meeting:join-request', onRequest);
     };
-  }, [socket, meetingId]);
+  }, [socket, meetingId, play]);
 
   const admit = async (userId: string) => {
     try {
