@@ -9,21 +9,25 @@ import {
   TextInput,
   Alert,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Plus,
   Video,
-  CalendarDays,
   ChevronRight,
   Clock,
-  Sparkles,
+  Users as UsersIcon,
+  MessageSquare,
+  GraduationCap,
+  Zap,
 } from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import {
   colors,
+  gradients,
   spacing,
   radii,
   font,
@@ -32,23 +36,50 @@ import {
 } from '../../src/theme';
 import type { Meeting } from '../../src/types';
 
-type IconProps = { color: string; size: number };
+type IconProps = { color?: string; size?: number };
 const IconPlus = Plus as unknown as React.ComponentType<IconProps>;
 const IconVideo = Video as unknown as React.ComponentType<IconProps>;
-const IconCalendar = CalendarDays as unknown as React.ComponentType<IconProps>;
 const IconChevron = ChevronRight as unknown as React.ComponentType<IconProps>;
 const IconClock = Clock as unknown as React.ComponentType<IconProps>;
-const IconSparkles = Sparkles as unknown as React.ComponentType<IconProps>;
+const IconUsers = UsersIcon as unknown as React.ComponentType<IconProps>;
+const IconMessage = MessageSquare as unknown as React.ComponentType<IconProps>;
+const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconZap = Zap as unknown as React.ComponentType<IconProps>;
 
 const STATUS_STYLES: Record<
   string,
   { bg: string; text: string; label: string }
 > = {
-  scheduled: { bg: colors.purpleSoft, text: colors.purple, label: 'Scheduled' },
-  live: { bg: colors.successSoft, text: colors.success, label: 'Live' },
-  ended: { bg: colors.surfaceAlt, text: colors.muted, label: 'Ended' },
-  cancelled: { bg: colors.dangerSoft, text: colors.danger, label: 'Cancelled' },
+  scheduled: {
+    bg: colors.purpleSoft,
+    text: colors.purpleLight,
+    label: 'Scheduled',
+  },
+  live: {
+    bg: colors.successSoft,
+    text: colors.success,
+    label: 'Live',
+  },
+  ended: {
+    bg: 'rgba(255,255,255,0.04)',
+    text: colors.muted,
+    label: 'Ended',
+  },
+  cancelled: {
+    bg: colors.dangerSoft,
+    text: colors.danger,
+    label: 'Cancelled',
+  },
 };
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 5) return 'Good night';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+}
 
 export default function HomeTab() {
   const { user } = useAuth();
@@ -120,7 +151,10 @@ export default function HomeTab() {
         },
       });
     } catch (e: any) {
-      Alert.alert('MitMe', e?.response?.data?.message || 'Could not join meeting');
+      Alert.alert(
+        'MitMe',
+        e?.response?.data?.message || 'Could not join meeting'
+      );
     } finally {
       setBusy(false);
     }
@@ -129,7 +163,8 @@ export default function HomeTab() {
   if (!user) return null;
 
   const firstName = user.displayName.split(' ')[0];
-  const visible = meetings.slice(0, 6);
+  const visible = meetings.slice(0, 5);
+  const isOnline = user.presence === 'online' || !user.presence;
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -142,85 +177,138 @@ export default function HomeTab() {
             onRefresh={onRefresh}
             tintColor={colors.purple}
             colors={[colors.purple]}
+            progressBackgroundColor={colors.surface}
           />
         }
       >
-        {/* Header */}
+        {/* ═══ Header ═══ */}
         <View style={s.header}>
           <View style={{ flex: 1 }}>
-            <Text style={s.greetingSmall}>Welcome back</Text>
+            <Text style={s.greetingSmall}>{getGreeting()}</Text>
             <Text style={s.greeting} numberOfLines={1}>
               {firstName}
             </Text>
           </View>
-          <View style={s.avatar}>
-            <Text style={s.avatarText}>
-              {user.displayName.charAt(0).toUpperCase()}
-            </Text>
+
+          <View style={s.avatarWrap}>
+            <LinearGradient
+              colors={gradients.brand}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.avatarRing}
+            >
+              <View style={s.avatar}>
+                <Text style={s.avatarText}>
+                  {user.displayName.charAt(0).toUpperCase()}
+                </Text>
+              </View>
+            </LinearGradient>
+            {isOnline && <View style={s.onlineDot} />}
           </View>
         </View>
 
-        {/* Action cards */}
+        {/* ═══ Hero card — New meeting ═══ */}
         <Pressable
           onPress={createMeeting}
           disabled={busy}
-          style={({ pressed }) => [pressed && { opacity: 0.9 }]}
+          style={({ pressed }) => [pressed && { opacity: 0.94 }]}
         >
-          <LinearGradient
-            colors={['#7040da', '#4e69ed']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={s.actionPrimary}
-          >
-            <View style={s.actionIconWrap}>
-              <IconPlus color="#fff" size={22} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={s.actionTitle}>New meeting</Text>
-              <Text style={s.actionSub}>Start an instant room</Text>
-            </View>
-            <IconChevron color="rgba(255,255,255,0.7)" size={20} />
-          </LinearGradient>
+          <View style={s.heroWrap}>
+            <LinearGradient
+              colors={gradients.brand}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.hero}
+            >
+              {/* Decorative radial */}
+              <View style={s.heroGlow} />
+
+              <View style={s.heroTop}>
+                <View style={s.heroIconWrap}>
+                  <IconPlus color="#fff" size={22} />
+                </View>
+                <IconChevron color="rgba(255,255,255,0.7)" size={20} />
+              </View>
+
+              <View style={s.heroBottom}>
+                <Text style={s.heroTitle}>Start instant meeting</Text>
+                <Text style={s.heroSub}>
+                  Jump into a room in one tap
+                </Text>
+              </View>
+            </LinearGradient>
+          </View>
         </Pressable>
 
-        <LinearGradient
-          colors={['#2469d9', '#37a0ef']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={s.action}
-        >
-          <View style={s.actionIconWrap}>
-            <IconVideo color="#fff" size={22} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={s.actionTitle}>Join meeting</Text>
+        {/* ═══ Join meeting ═══ */}
+        <View style={s.joinCard}>
+          <View style={s.joinRow}>
+            <View style={s.joinIcon}>
+              <IconVideo color={colors.blueLight} size={18} />
+            </View>
             <TextInput
-              style={s.codeInput}
+              style={s.joinInput}
               placeholder="Enter meeting code"
-              placeholderTextColor="rgba(255,255,255,0.65)"
+              placeholderTextColor={colors.mutedDim}
               value={code}
               onChangeText={(v) => setCode(v.toUpperCase())}
               autoCapitalize="characters"
               autoCorrect={false}
+              returnKeyType="go"
+              onSubmitEditing={joinMeeting}
             />
+            <Pressable
+              onPress={joinMeeting}
+              disabled={busy || !code.trim()}
+              style={({ pressed }) => [
+                s.joinBtnWrap,
+                (!code.trim() || busy) && { opacity: 0.35 },
+                pressed && { opacity: 0.85 },
+              ]}
+            >
+              <LinearGradient
+                colors={gradients.blueOnly}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.joinBtn}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={s.joinBtnText}>Join</Text>
+                )}
+              </LinearGradient>
+            </Pressable>
           </View>
-          <Pressable
-            onPress={joinMeeting}
-            disabled={busy || !code.trim()}
-            style={({ pressed }) => [
-              s.joinBtn,
-              (!code.trim() || busy) && { opacity: 0.4 },
-              pressed && { opacity: 0.8 },
-            ]}
-          >
-            <Text style={s.joinBtnText}>Join</Text>
-          </Pressable>
-        </LinearGradient>
+        </View>
 
-        {/* Recent meetings */}
+        {/* ═══ Quick stats ═══ */}
+        <View style={s.statsRow}>
+          <View style={s.statChip}>
+            <IconVideo color={colors.purpleLight} size={14} />
+            <Text style={s.statChipValue}>{meetings.length}</Text>
+            <Text style={s.statChipLabel}>Meetings</Text>
+          </View>
+          <View style={s.statChip}>
+            <IconUsers color={colors.blueLight} size={14} />
+            <Text style={s.statChipValue}>
+              {user.role === 'teacher' ? 'Teacher' : 'Student'}
+            </Text>
+            <Text style={s.statChipLabel}>Role</Text>
+          </View>
+          <View style={s.statChip}>
+            <IconZap color={colors.success} size={14} />
+            <Text style={s.statChipValue}>
+              {user.presence ?? 'online'}
+            </Text>
+            <Text style={s.statChipLabel}>Status</Text>
+          </View>
+        </View>
+
+        {/* ═══ Recent meetings ═══ */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Recent meetings</Text>
-          {meetings.length > 6 && (
+          {meetings.length > 5 && (
             <Pressable
               onPress={() => router.push('/(tabs)/meetings')}
               hitSlop={8}
@@ -232,26 +320,39 @@ export default function HomeTab() {
 
         {visible.length === 0 ? (
           <View style={s.emptyCard}>
-            <View style={s.emptyIconWrap}>
-              <IconCalendar color={colors.purple} size={26} />
-            </View>
+            <LinearGradient
+              colors={gradients.brandSoft}
+              style={s.emptyIconWrap}
+            >
+              <IconVideo color={colors.purpleLight} size={26} />
+            </LinearGradient>
             <Text style={s.emptyTitle}>No meetings yet</Text>
             <Text style={s.emptyText}>
-              Start your first MitMe room and it will show up here.
+              Your meetings will appear here. Start your first room.
             </Text>
             <Pressable
-              style={({ pressed }) => [s.emptyBtn, pressed && { opacity: 0.9 }]}
               onPress={createMeeting}
+              style={({ pressed }) => [
+                s.emptyBtnWrap,
+                pressed && { opacity: 0.92 },
+              ]}
             >
-              <IconPlus color="#fff" size={16} />
-              <Text style={s.emptyBtnText}>Start a meeting</Text>
+              <LinearGradient
+                colors={gradients.brand}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={s.emptyBtn}
+              >
+                <IconPlus color="#fff" size={16} />
+                <Text style={s.emptyBtnText}>Start a meeting</Text>
+              </LinearGradient>
             </Pressable>
           </View>
         ) : (
           <View style={s.listWrap}>
-            {visible.map((m) => {
-              const status =
-                STATUS_STYLES[m.status] ?? STATUS_STYLES.scheduled;
+            {visible.map((m, idx) => {
+              const status = STATUS_STYLES[m.status] ?? STATUS_STYLES.scheduled;
+              const isLast = idx === visible.length - 1;
               return (
                 <Pressable
                   key={m._id}
@@ -267,24 +368,32 @@ export default function HomeTab() {
                   }
                   style={({ pressed }) => [
                     s.meetingRow,
-                    pressed && { backgroundColor: colors.surfaceAlt },
+                    !isLast && s.meetingRowDivider,
+                    pressed && { backgroundColor: colors.surfaceHover },
                   ]}
                 >
-                  <View style={s.meetingIcon}>
-                    <IconVideo color={colors.purple} size={18} />
-                  </View>
+                  <LinearGradient
+                    colors={gradients.brandSoft}
+                    style={s.meetingIcon}
+                  >
+                    <IconVideo color={colors.purpleLight} size={18} />
+                  </LinearGradient>
+
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={s.meetingTitle} numberOfLines={1}>
                       {m.title}
                     </Text>
                     <View style={s.meetingMetaRow}>
-                      <IconClock color={colors.mutedLight} size={11} />
+                      <IconClock color={colors.mutedDim} size={11} />
                       <Text style={s.meetingMeta} numberOfLines={1}>
                         {m.code}
                       </Text>
                     </View>
                   </View>
-                  <View style={[s.badge, { backgroundColor: status.bg }]}>
+
+                  <View
+                    style={[s.badge, { backgroundColor: status.bg }]}
+                  >
                     <Text style={[s.badgeText, { color: status.text }]}>
                       {status.label}
                     </Text>
@@ -295,35 +404,52 @@ export default function HomeTab() {
           </View>
         )}
 
-        {/* Workspace card */}
-        <View style={s.workspace}>
-          <View style={s.workspaceHeader}>
-            <View style={s.workspaceIconWrap}>
-              <IconSparkles color={colors.purple} size={18} />
-            </View>
-            <Text style={s.workspaceTitle}>Your workspace</Text>
-          </View>
-          <Text style={s.workspaceText}>
-            Chat, voice calls, collaborative whiteboards, and file sharing —
-            all in one place, available across web and mobile.
-          </Text>
+        {/* ═══ Explore shortcuts ═══ */}
+        <View style={s.sectionHeader}>
+          <Text style={s.sectionTitle}>Quick actions</Text>
+        </View>
 
-          <View style={s.workspaceStats}>
-            <View style={s.statCell}>
-              <Text style={s.statNumber}>{meetings.length}</Text>
-              <Text style={s.statLabel}>Meetings</Text>
+        <View style={s.shortcutRow}>
+          <Pressable
+            style={({ pressed }) => [
+              s.shortcut,
+              pressed && { backgroundColor: colors.surfaceHover },
+            ]}
+            onPress={() => router.push('/(tabs)/messages')}
+          >
+            <View style={[s.shortcutIcon, { backgroundColor: colors.purpleSoft }]}>
+              <IconMessage color={colors.purpleLight} size={18} />
             </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statNumber}>{user.presence ?? 'online'}</Text>
-              <Text style={s.statLabel}>Presence</Text>
+            <Text style={s.shortcutLabel}>Messages</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              s.shortcut,
+              pressed && { backgroundColor: colors.surfaceHover },
+            ]}
+            onPress={() => router.push('/(tabs)/contacts')}
+          >
+            <View style={[s.shortcutIcon, { backgroundColor: colors.blueSoft }]}>
+              <IconUsers color={colors.blueLight} size={18} />
             </View>
-            <View style={s.statDivider} />
-            <View style={s.statCell}>
-              <Text style={s.statNumber}>{user.role ?? 'student'}</Text>
-              <Text style={s.statLabel}>Role</Text>
+            <Text style={s.shortcutLabel}>Contacts</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              s.shortcut,
+              pressed && { backgroundColor: colors.surfaceHover },
+            ]}
+            onPress={() => router.push('/(tabs)/classes')}
+          >
+            <View
+              style={[s.shortcutIcon, { backgroundColor: colors.successSoft }]}
+            >
+              <IconClasses color={colors.success} size={18} />
             </View>
-          </View>
+            <Text style={s.shortcutLabel}>Classes</Text>
+          </Pressable>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -331,210 +457,322 @@ export default function HomeTab() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
+  safe: { flex: 1, backgroundColor: colors.bg },
   content: {
     padding: spacing.xl,
     paddingBottom: spacing.xxxl,
   },
 
+  // ─── Header ─────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxl,
   },
   greetingSmall: {
     color: colors.muted,
     fontSize: font.sm,
-    fontWeight: weights.medium,
+    fontWeight: weights.semibold,
+    letterSpacing: 0.2,
   },
   greeting: {
-    fontSize: font.xxl,
+    fontSize: font.huge,
     fontWeight: weights.extrabold,
-    color: colors.ink,
-    letterSpacing: -0.4,
+    color: colors.inkStrong,
+    letterSpacing: -1,
     marginTop: 2,
+  },
+  avatarWrap: { position: 'relative' },
+  avatarRing: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    padding: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 24,
+    backgroundColor: colors.bgElevated,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: colors.inkStrong,
+    fontWeight: weights.extrabold,
+    fontSize: font.xl,
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: colors.success,
+    borderWidth: 3,
+    borderColor: colors.bg,
+  },
+
+  // ─── Hero card ──────────────────────────────────────────
+  heroWrap: {
+    borderRadius: radii.xxl,
+    marginBottom: spacing.md,
+    ...shadows.glow,
+  },
+  hero: {
+    borderRadius: radii.xxl,
+    padding: spacing.xl,
+    minHeight: 165,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroGlow: {
+    position: 'absolute',
+    top: -60,
+    right: -60,
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 2,
+  },
+  heroIconWrap: {
     width: 46,
     height: 46,
-    borderRadius: 23,
-    backgroundColor: colors.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.sm,
-  },
-  avatarText: { color: '#fff', fontWeight: weights.extrabold, fontSize: font.lg },
-
-  action: {
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  actionPrimary: {
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  actionIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
-  actionTitle: {
+  heroBottom: { zIndex: 2 },
+  heroTitle: {
     color: '#fff',
-    fontSize: font.lg,
+    fontSize: font.xl,
     fontWeight: weights.extrabold,
+    letterSpacing: -0.4,
   },
-  actionSub: {
-    color: 'rgba(255,255,255,0.85)',
+  heroSub: {
+    color: 'rgba(255,255,255,0.78)',
     fontSize: font.sm,
-    marginTop: 2,
+    marginTop: 4,
+    fontWeight: weights.medium,
   },
-  codeInput: {
-    marginTop: 6,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    color: '#fff',
+
+  // ─── Join meeting ───────────────────────────────────────
+  joinCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radii.xl,
+    padding: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  joinRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  joinIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.blueSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinInput: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    color: colors.inkStrong,
     fontSize: font.md,
     fontWeight: weights.semibold,
+    letterSpacing: 0.5,
+  },
+  joinBtnWrap: {
+    borderRadius: radii.md,
+    overflow: 'hidden',
   },
   joinBtn: {
-    backgroundColor: 'rgba(255,255,255,0.28)',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
   },
   joinBtnText: {
     color: '#fff',
     fontWeight: weights.extrabold,
     fontSize: font.sm,
+    letterSpacing: 0.4,
   },
 
+  // ─── Quick stats ────────────────────────────────────────
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  statChip: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  statChipValue: {
+    color: colors.inkStrong,
+    fontSize: font.lg,
+    fontWeight: weights.extrabold,
+    textTransform: 'capitalize',
+    letterSpacing: -0.3,
+    marginTop: 6,
+  },
+  statChipLabel: {
+    color: colors.mutedDim,
+    fontSize: 10,
+    fontWeight: weights.semibold,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+
+  // ─── Section headers ────────────────────────────────────
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.lg,
     marginBottom: spacing.md,
+    marginTop: spacing.sm,
   },
   sectionTitle: {
     fontSize: font.lg,
     fontWeight: weights.extrabold,
-    color: colors.ink,
-    letterSpacing: -0.2,
+    color: colors.inkStrong,
+    letterSpacing: -0.3,
   },
   sectionLink: {
-    color: colors.purple,
+    color: colors.purpleLight,
     fontWeight: weights.bold,
     fontSize: font.sm,
   },
 
+  // ─── Meeting list ───────────────────────────────────────
   listWrap: {
-    backgroundColor: colors.card,
-    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.surfaceBorder,
     overflow: 'hidden',
-    ...shadows.sm,
+    marginBottom: spacing.xl,
   },
   meetingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.lg,
+  },
+  meetingRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+    borderBottomColor: colors.surfaceBorder,
   },
   meetingIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: colors.purpleSoft,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.18)',
   },
   meetingTitle: {
     fontSize: font.md,
     fontWeight: weights.bold,
-    color: colors.ink,
+    color: colors.inkStrong,
+    letterSpacing: -0.2,
   },
   meetingMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 3,
+    marginTop: 4,
   },
   meetingMeta: {
-    color: colors.muted,
-    fontSize: font.sm,
-    fontWeight: weights.medium,
+    color: colors.mutedDim,
+    fontSize: font.xs,
+    fontWeight: weights.semibold,
+    letterSpacing: 0.4,
   },
   badge: {
-    paddingHorizontal: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
     paddingVertical: 5,
     borderRadius: radii.pill,
   },
   badgeText: {
     fontSize: 11,
     fontWeight: weights.bold,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
     textTransform: 'capitalize',
   },
 
+  // ─── Empty state ────────────────────────────────────────
   emptyCard: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    padding: spacing.xl,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radii.xl,
+    padding: spacing.xxl,
     alignItems: 'center',
-    ...shadows.sm,
+    marginBottom: spacing.xl,
   },
   emptyIconWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.purpleSoft,
+    width: 68,
+    height: 68,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.2)',
   },
   emptyTitle: {
     fontSize: font.lg,
     fontWeight: weights.extrabold,
-    color: colors.ink,
+    color: colors.inkStrong,
   },
   emptyText: {
     color: colors.muted,
     fontSize: font.base,
     textAlign: 'center',
-    marginTop: 6,
+    marginTop: 8,
     maxWidth: 260,
+    lineHeight: 20,
+  },
+  emptyBtnWrap: {
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    marginTop: spacing.lg,
   },
   emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: colors.purple,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderRadius: radii.md,
-    marginTop: spacing.lg,
   },
   emptyBtnText: {
     color: '#fff',
@@ -542,65 +780,32 @@ const s = StyleSheet.create({
     fontSize: font.sm,
   },
 
-  workspace: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
-    ...shadows.sm,
-  },
-  workspaceHeader: {
+  // ─── Shortcuts ──────────────────────────────────────────
+  shortcutRow: {
     flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  shortcut: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.surfaceBorder,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
   },
-  workspaceIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: colors.purpleSoft,
+  shortcutIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  workspaceTitle: {
-    fontSize: font.lg,
-    fontWeight: weights.extrabold,
+  shortcutLabel: {
     color: colors.ink,
-  },
-  workspaceText: {
-    color: colors.muted,
-    fontSize: font.base,
-    lineHeight: 20,
-    marginBottom: spacing.lg,
-  },
-  workspaceStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-  },
-  statCell: { flex: 1, alignItems: 'center' },
-  statNumber: {
-    fontSize: font.lg,
-    fontWeight: weights.extrabold,
-    color: colors.ink,
-    textTransform: 'capitalize',
-  },
-  statLabel: {
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
-    fontWeight: weights.semibold,
-    letterSpacing: 0.3,
-    textTransform: 'uppercase',
-  },
-  statDivider: {
-    width: 1,
-    height: 28,
-    backgroundColor: colors.border,
+    fontSize: font.sm,
+    fontWeight: weights.bold,
+    letterSpacing: 0.2,
   },
 });

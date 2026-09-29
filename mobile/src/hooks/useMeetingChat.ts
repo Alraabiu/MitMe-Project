@@ -1,11 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useRoomContext } from '@livekit/react-native';
+import Constants from 'expo-constants';
 import {
   RoomEvent,
   DataPacket_Kind,
   type RemoteParticipant,
 } from 'livekit-client';
 
+// ─── Environment detection ──────────────────────────────────
+const isExpoGo = Constants.appOwnership === 'expo';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let LiveKit: any = null;
+if (!isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    LiveKit = require('@livekit/react-native');
+  } catch (err) {
+    console.warn('[MitMe] LiveKit native module unavailable in chat hook:', err);
+  }
+}
+
+// Safe fallback so hooks don't crash in Expo Go
+const useRoomContext: () => any =
+  LiveKit?.useRoomContext ?? (() => null);
+
+// ─── Types ──────────────────────────────────────────────────
 export interface ChatMessage {
   id: string;
   text: string;

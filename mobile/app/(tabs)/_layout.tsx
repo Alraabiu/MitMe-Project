@@ -1,5 +1,5 @@
 ﻿import { Redirect, Tabs } from 'expo-router';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import type { ColorValue } from 'react-native';
 import {
   Home,
@@ -15,17 +15,16 @@ import { colors, font, weights, shadows } from '../../src/theme';
 
 type IconProps = { color: ColorValue; size: number; focused: boolean };
 
-type IconType = React.ComponentType<IconProps>;
-
-/** Wrap lucide icon so we can animate stroke width based on focus */
 const makeIcon =
-  (Icon: React.ComponentType<{ size?: number; color?: ColorValue; strokeWidth?: number }>) =>
+  (
+    Icon: React.ComponentType<{
+      size?: number;
+      color?: ColorValue;
+      strokeWidth?: number;
+    }>
+  ) =>
   ({ color, size, focused }: IconProps) => (
-    <Icon
-      size={size}
-      color={color}
-      strokeWidth={focused ? 2.4 : 1.8}
-    />
+    <Icon size={size} color={color} strokeWidth={focused ? 2.6 : 1.9} />
   );
 
 const HomeIcon = makeIcon(Home);
@@ -35,27 +34,28 @@ const ContactsIcon = makeIcon(Users);
 const MeetingsIcon = makeIcon(Video);
 const ProfileIcon = makeIcon(UserIcon);
 
-/** Custom tab icon wrapper that shows an active indicator dot */
 function TabIcon({
   Icon,
   color,
   focused,
   badge,
 }: {
-  Icon: IconType;
+  Icon: React.ComponentType<IconProps>;
   color: ColorValue;
   focused: boolean;
   badge?: number;
 }) {
   return (
     <View style={navStyles.iconWrap}>
+      {focused && <View style={navStyles.activeGlow} />}
       <Icon color={color} size={22} focused={focused} />
       {badge && badge > 0 ? (
         <View style={navStyles.badge}>
-          <View style={navStyles.badgeDot} />
+          <Text style={navStyles.badgeText}>
+            {badge > 9 ? '9+' : String(badge)}
+          </Text>
         </View>
       ) : null}
-      {focused && <View style={navStyles.activeDot} />}
     </View>
   );
 }
@@ -71,11 +71,12 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.purple,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: colors.mutedDim,
         tabBarStyle: navStyles.tabBar,
         tabBarLabelStyle: navStyles.tabLabel,
         tabBarItemStyle: navStyles.tabItem,
         tabBarHideOnKeyboard: true,
+        sceneStyle: { backgroundColor: colors.bg },
       }}
     >
       <Tabs.Screen
@@ -143,12 +144,13 @@ export default function TabsLayout() {
 
 const navStyles = StyleSheet.create({
   tabBar: {
-    backgroundColor: colors.card,
-    borderTopWidth: 0,
-    height: 74,
+    backgroundColor: colors.bgElevated,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceBorder,
+    height: 78,
     paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 4,
+    paddingBottom: 12,
+    paddingHorizontal: 6,
     ...shadows.nav,
   },
   tabItem: {
@@ -158,41 +160,39 @@ const navStyles = StyleSheet.create({
   tabLabel: {
     fontSize: 10,
     fontWeight: weights.bold,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
     marginTop: 2,
   },
   iconWrap: {
-    width: 44,
-    height: 32,
+    width: 48,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  activeDot: {
+  activeGlow: {
     position: 'absolute',
-    bottom: -4,
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.purple,
+    inset: 0,
+    borderRadius: 12,
+    backgroundColor: colors.purpleSoft,
   },
   badge: {
     position: 'absolute',
-    top: 0,
-    right: 4,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    top: -2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: colors.danger,
-    borderWidth: 2,
-    borderColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: colors.bgElevated,
   },
-  badgeDot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#fff',
+  badgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: weights.extrabold,
   },
 });

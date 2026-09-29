@@ -10,14 +10,24 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Eye, EyeOff, Mail, Phone, User, AtSign, Lock } from 'lucide-react-native';
+import {
+  Eye,
+  EyeOff,
+  Mail,
+  Phone,
+  User,
+  AtSign,
+  Lock,
+} from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import {
   colors,
+  gradients,
   spacing,
   radii,
   font,
@@ -47,7 +57,10 @@ export default function RegisterScreen() {
 
   const submit = async () => {
     if (!form.displayName.trim() || !form.username.trim() || !form.password) {
-      return Alert.alert('MitMe', 'Full name, username and password are required.');
+      return Alert.alert(
+        'MitMe',
+        'Full name, username and password are required.'
+      );
     }
     if (form.password.length < 8) {
       return Alert.alert('MitMe', 'Password must be at least 8 characters.');
@@ -94,22 +107,23 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
-          <View style={s.header}>
+          <View style={s.brandRow}>
             <LinearGradient
-              colors={[colors.purpleLight, colors.blue]}
+              colors={gradients.brand}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={s.mark}
             >
               <Text style={s.markText}>M</Text>
             </LinearGradient>
-            <Text style={s.h1}>Create your account</Text>
-            <Text style={s.sub}>A few details and you're in.</Text>
+            <Text style={s.brandName}>MitMe</Text>
           </View>
 
+          <Text style={s.h1}>Create your account</Text>
+          <Text style={s.sub}>A few details and you're in.</Text>
+
           {/* Role selector */}
-          <Text style={s.sectionLabel}>I am joining as:</Text>
+          <Text style={s.sectionLabel}>I am joining as</Text>
           <View style={s.roleRow}>
             <Pressable
               style={[s.roleCard, role === 'student' && s.roleCardActive]}
@@ -136,26 +150,25 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
 
-          {/* Full name */}
+          {/* Inputs */}
           <View style={s.inputWrap}>
-            <User size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <User size={18} color={colors.mutedLight} />
             <TextInput
               style={s.input}
               placeholder="Full name"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mutedDim}
               value={form.displayName}
               onChangeText={set('displayName')}
               autoCapitalize="words"
             />
           </View>
 
-          {/* Username */}
           <View style={s.inputWrap}>
-            <AtSign size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <AtSign size={18} color={colors.mutedLight} />
             <TextInput
               style={s.input}
               placeholder="Username"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mutedDim}
               value={form.username}
               onChangeText={set('username')}
               autoCapitalize="none"
@@ -163,13 +176,12 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Email */}
           <View style={s.inputWrap}>
-            <Mail size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <Mail size={18} color={colors.mutedLight} />
             <TextInput
               style={s.input}
               placeholder="Email"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mutedDim}
               value={form.email}
               onChangeText={set('email')}
               keyboardType="email-address"
@@ -178,26 +190,24 @@ export default function RegisterScreen() {
             />
           </View>
 
-          {/* Phone */}
           <View style={s.inputWrap}>
-            <Phone size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <Phone size={18} color={colors.mutedLight} />
             <TextInput
               style={s.input}
-              placeholder="Phone (optional if email is filled)"
-              placeholderTextColor={colors.mutedLight}
+              placeholder="Phone (optional)"
+              placeholderTextColor={colors.mutedDim}
               value={form.phone}
               onChangeText={set('phone')}
               keyboardType="phone-pad"
             />
           </View>
 
-          {/* Password with eye toggle */}
           <View style={s.inputWrap}>
-            <Lock size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <Lock size={18} color={colors.mutedLight} />
             <TextInput
-              style={[s.input, s.inputWithEye]}
+              style={s.input}
               placeholder="Password (8+ characters)"
-              placeholderTextColor={colors.mutedLight}
+              placeholderTextColor={colors.mutedDim}
               value={form.password}
               onChangeText={set('password')}
               secureTextEntry={!showPassword}
@@ -210,54 +220,35 @@ export default function RegisterScreen() {
               hitSlop={10}
             >
               {showPassword ? (
-                <Eye size={20} color={colors.purple} />
+                <Eye size={20} color={colors.purpleLight} />
               ) : (
                 <EyeOff size={20} color={colors.mutedLight} />
               )}
             </Pressable>
           </View>
 
-          {/* Submit */}
           <Pressable
             style={({ pressed }) => [
-              s.btn,
+              s.btnWrap,
               pressed && { opacity: 0.92 },
-              busy && { opacity: 0.6 },
             ]}
             onPress={submit}
             disabled={busy}
           >
             <LinearGradient
-              colors={[colors.purple, colors.blue]}
+              colors={gradients.brand}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={s.btnInner}
+              style={s.btn}
             >
-              <Text style={s.btnText}>
-                {busy ? 'Creating…' : 'Create account'}
-              </Text>
+              {busy ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={s.btnText}>Create account</Text>
+              )}
             </LinearGradient>
           </Pressable>
 
-          {/* Divider */}
-          <View style={s.divider}>
-            <View style={s.dividerLine} />
-            <Text style={s.dividerText}>or continue with</Text>
-            <View style={s.dividerLine} />
-          </View>
-
-          {/* Google placeholder */}
-          <Pressable
-            style={({ pressed }) => [s.googleBtn, pressed && { opacity: 0.9 }]}
-            onPress={() =>
-              Alert.alert('Coming soon', 'Google sign-in will be available shortly.')
-            }
-          >
-            <Text style={s.googleG}>G</Text>
-            <Text style={s.googleText}>Continue with Google</Text>
-          </Pressable>
-
-          {/* Switch to login */}
           <View style={s.switchRow}>
             <Text style={s.switchText}>Already have an account?</Text>
             <Link href="/(auth)/login" asChild>
@@ -273,56 +264,68 @@ export default function RegisterScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.surface },
+  safe: { flex: 1, backgroundColor: colors.bg },
   scroll: {
     padding: spacing.xxl,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.xxl,
     paddingBottom: spacing.xxxl,
   },
 
-  header: { marginBottom: spacing.xl },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+  },
   mark: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
-    ...shadows.card,
+    ...shadows.glow,
   },
-  markText: { color: '#fff', fontSize: 28, fontWeight: weights.extrabold },
+  markText: { color: '#fff', fontSize: 22, fontWeight: weights.extrabold },
+  brandName: {
+    fontSize: font.xl,
+    fontWeight: weights.extrabold,
+    color: colors.inkStrong,
+    letterSpacing: -0.4,
+  },
+
   h1: {
     fontSize: font.xxxl,
     fontWeight: weights.extrabold,
-    color: colors.ink,
-    letterSpacing: -0.5,
+    color: colors.inkStrong,
+    letterSpacing: -0.8,
   },
   sub: {
     color: colors.muted,
     marginTop: 6,
+    marginBottom: spacing.xl,
     fontSize: font.md,
   },
 
   sectionLabel: {
-    fontSize: font.sm,
+    fontSize: 11,
     fontWeight: weights.bold,
-    color: colors.ink,
+    color: colors.mutedDim,
     marginBottom: spacing.sm,
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    letterSpacing: 0.6,
   },
   roleRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   roleCard: {
     flex: 1,
     padding: spacing.lg,
     borderRadius: radii.lg,
     borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: colors.surfaceBorder,
+    backgroundColor: colors.surface,
   },
   roleCardActive: {
     borderColor: colors.purple,
@@ -332,8 +335,9 @@ const s = StyleSheet.create({
     fontSize: font.lg,
     fontWeight: weights.extrabold,
     color: colors.ink,
+    letterSpacing: -0.2,
   },
-  roleTitleActive: { color: colors.purple },
+  roleTitleActive: { color: colors.purpleLight },
   roleSub: {
     fontSize: font.sm,
     color: colors.muted,
@@ -343,23 +347,20 @@ const s = StyleSheet.create({
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
+    gap: spacing.md,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.surfaceBorder,
     borderRadius: radii.lg,
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
-    minHeight: 54,
+    minHeight: 56,
   },
-  inputIcon: { marginRight: spacing.md },
   input: {
     flex: 1,
     paddingVertical: spacing.md + 2,
     fontSize: font.md,
-    color: colors.ink,
-  },
-  inputWithEye: {
-    paddingRight: spacing.xs,
+    color: colors.inkStrong,
   },
   eyeBtn: {
     width: 40,
@@ -369,13 +370,13 @@ const s = StyleSheet.create({
     marginRight: -spacing.sm,
   },
 
-  btn: {
+  btnWrap: {
     borderRadius: radii.lg,
     overflow: 'hidden',
     marginTop: spacing.sm,
-    ...shadows.card,
+    ...shadows.glow,
   },
-  btnInner: {
+  btn: {
     paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -387,48 +388,16 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-    marginBottom: spacing.lg,
-  },
-  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
-  dividerText: { color: colors.muted, fontSize: font.sm },
-
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  googleG: {
-    fontSize: 20,
-    fontWeight: weights.extrabold,
-    color: '#4285F4',
-  },
-  googleText: {
-    fontSize: font.md,
-    fontWeight: weights.bold,
-    color: colors.ink,
-  },
-
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
+    marginTop: spacing.xl,
   },
   switchText: { color: colors.muted, fontSize: font.base },
   switchLink: {
-    color: colors.purple,
+    color: colors.purpleLight,
     fontWeight: weights.extrabold,
     fontSize: font.base,
   },

@@ -1,33 +1,61 @@
+/* ============================================================
+   MitMe — Design System (Dark-first, premium)
+   ============================================================ */
+
 export const colors = {
-  // Brand
-  purple: '#6d42d8',
-  purpleLight: '#8c5cf4',
-  purpleSoft: '#f0ebff',
-  blue: '#3264e8',
-  blueLight: '#37a0ef',
+  // ─── Surfaces (deep charcoal, subtle blue tint) ─────────
+  bg: '#0A0A0F',
+  bgElevated: '#101018',
+  surface: '#14141C',
+  surfaceElevated: '#1A1A24',
+  surfaceHover: '#1F1F2A',
+  surfaceBorder: 'rgba(255,255,255,0.06)',
+  surfaceBorderStrong: 'rgba(255,255,255,0.10)',
 
-  // Neutrals
-  ink: '#17152b',
-  inkSoft: '#2b2740',
-  muted: '#706d80',
-  mutedLight: '#9b94b8',
-  border: '#e7e3f0',
-  borderLight: '#f2efff',
-  card: '#ffffff',
-  surface: '#f6f5fb',
-  surfaceAlt: '#faf9fe',
+  // ─── Brand (brighter for dark backgrounds) ──────────────
+  purple: '#8B5CF6',
+  purpleLight: '#A78BFA',
+  purpleDark: '#6D42D8',
+  purpleSoft: 'rgba(139, 92, 246, 0.12)',
+  purpleGlow: 'rgba(139, 92, 246, 0.35)',
 
-  // Feedback
-  success: '#21a66a',
-  successSoft: '#e6f7ef',
-  danger: '#d94b65',
-  dangerSoft: '#fdecee',
-  warning: '#e08c1c',
-  warningSoft: '#fef3e0',
+  blue: '#3B82F6',
+  blueLight: '#60A5FA',
+  blueSoft: 'rgba(59, 130, 246, 0.12)',
 
-  // Existing keys (kept for backward compatibility)
-  bg: '#f7f6fb',
-  green: '#21a66a',
+  // ─── Text ───────────────────────────────────────────────
+  ink: '#F5F5F7',
+  inkStrong: '#FFFFFF',
+  muted: '#8B8B9A',
+  mutedLight: '#6B6B7B',
+  mutedDim: '#56566B',
+
+  // ─── Semantic ───────────────────────────────────────────
+  success: '#10B981',
+  successSoft: 'rgba(16, 185, 129, 0.12)',
+  successGlow: 'rgba(16, 185, 129, 0.30)',
+
+  danger: '#EF4444',
+  dangerSoft: 'rgba(239, 68, 68, 0.12)',
+  dangerGlow: 'rgba(239, 68, 68, 0.30)',
+
+  warning: '#F59E0B',
+  warningSoft: 'rgba(245, 158, 11, 0.12)',
+
+  // ─── Legacy keys (kept for backward compat) ─────────────
+  card: '#14141C',
+  border: 'rgba(255,255,255,0.06)',
+  green: '#10B981',
+} as const;
+
+export const gradients = {
+  brand: ['#8B5CF6', '#3B82F6'] as const,
+  brandDeep: ['#6D42D8', '#4F46E5'] as const,
+  brandSoft: ['rgba(139,92,246,0.18)', 'rgba(59,130,246,0.14)'] as const,
+  purpleOnly: ['#8B5CF6', '#6D42D8'] as const,
+  blueOnly: ['#3B82F6', '#2563EB'] as const,
+  success: ['#10B981', '#059669'] as const,
+  danger: ['#EF4444', '#DC2626'] as const,
 } as const;
 
 export const spacing = {
@@ -58,6 +86,7 @@ export const font = {
   xl: 20,
   xxl: 24,
   xxxl: 28,
+  huge: 34,
 } as const;
 
 export const weights = {
@@ -68,26 +97,34 @@ export const weights = {
   extrabold: '800' as const,
 };
 
+/** Dark UI doesn't rely on drop shadows much — it uses elevation by color. */
 export const shadows = {
   card: {
-    shadowColor: '#1f1840',
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6,
   },
   sm: {
-    shadowColor: '#1f1840',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
   },
   nav: {
-    shadowColor: '#1f1840',
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: -6 },
+    elevation: 16,
+  },
+  glow: {
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.35,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
 } as const;
