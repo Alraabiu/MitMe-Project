@@ -12,7 +12,6 @@
     "postinstall": "echo 'Install complete'"
   },
   "dependencies": {
-    "@config-plugins/react-native-webrtc": "^15.0.2",
     "@expo/vector-icons": "^15.0.2",
     "@livekit/react-native": "^3.0.0",
     "@livekit/react-native-expo-plugin": "^1.0.3",
@@ -45,7 +44,6 @@
     "react-native": "0.86.3",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4",
-    "react-native-webrtc": "^124.0.8",
     "socket.io-client": "^4.8.1"
   },
   "devDependencies": {
@@ -58,9 +56,7 @@
     },
     "doctor": {
       "reactNativeDirectoryCheck": {
-        "exclude": [
-          "react-native-webrtc"
-        ]
+        "exclude": []
       }
     }
   }

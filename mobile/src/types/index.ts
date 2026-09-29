@@ -12,7 +12,7 @@ export interface User {
   bio?: string;
   presence?: 'online' | 'away' | 'dnd' | 'offline';
   status?: 'active' | 'suspended';
-  role?: 'user' | 'moderator' | 'admin';
+    role?: 'user' | 'student' | 'teacher' | 'moderator' | 'admin';
   lastSeen?: string;
 }
 

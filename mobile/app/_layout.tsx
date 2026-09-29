@@ -1,15 +1,24 @@
-﻿// Must be the very first import — registers native WebRTC globals
-import '@livekit/react-native-webrtc';
-import { registerGlobals } from '@livekit/react-native-webrtc';
-
-import { Stack } from 'expo-router';
+﻿import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import Constants from 'expo-constants';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { MessageNotificationsProvider } from '../src/context/MessageNotificationsContext';
 import { useAppReady } from '../src/hooks/useAppReady';
 
-registerGlobals();
+// ─── WebRTC globals (dev build / APK only) ──────────────
+// Expo Go does NOT include the WebRTC native module.
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const webrtc = require('@livekit/react-native-webrtc');
+    webrtc.registerGlobals?.();
+  } catch (err) {
+    console.warn('[MitMe] WebRTC native module unavailable:', err);
+  }
+}
 
 export default function RootLayout() {
   return (
@@ -23,10 +32,6 @@ export default function RootLayout() {
   );
 }
 
-/**
- * Renders the navigation stack.
- * Keeps the native splash visible until the auth state has loaded.
- */
 function AppShell() {
   const { loading } = useAuth();
   useAppReady(!loading);
