@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   StatusBar as RNStatusBar,
   ScrollView,
+  PermissionsAndroid,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -21,6 +23,7 @@ import {
   VideoOff,
   PhoneOff,
   PenTool,
+  MonitorUp,
   UserCheck,
   Check,
   X,
@@ -33,7 +36,6 @@ import { colors, spacing, radii, font } from '../src/theme';
 import type { Socket } from 'socket.io-client';
 
 // ─── Environment detection ──────────────────────────────────
-// Expo Go doesn't include native WebRTC. Load LiveKit conditionally.
 const isExpoGo = Constants.appOwnership === 'expo';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,21 +46,14 @@ if (!isExpoGo) {
     LiveKit = require('@livekit/react-native');
   } catch (err) {
     console.warn('[MitMe] LiveKit native module unavailable:', err);
-    LiveKit = null;
   }
 }
 
-// Safe fallbacks so hooks/types don't break in Expo Go
 const LiveKitRoom = LiveKit?.LiveKitRoom;
 const useLocalParticipant: () => { localParticipant: any } =
   LiveKit?.useLocalParticipant ?? (() => ({ localParticipant: null }));
-const useTracks: (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sources: any[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  options?: any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-) => any[] = LiveKit?.useTracks ?? (() => []);
+const useTracks: (sources: any[], options?: any) => any[] =
+  LiveKit?.useTracks ?? (() => []);
 const VideoView: any = LiveKit?.VideoView ?? (() => null);
 const AudioSession: any =
   LiveKit?.AudioSession ?? {
@@ -90,10 +85,32 @@ type JoinState = 'loading' | 'pending' | 'admitted' | 'error';
 
 interface TrackRef {
   source: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   participant?: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   publication?: any;
+}
+
+// ─── Permission helper ──────────────────────────────────────
+async function requestMediaPermissions(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+
+  try {
+    const result = await PermissionsAndroid.requestMultiple([
+      PermissionsAndroid.PERMISSIONS.CAMERA,
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+    ]);
+
+    const cameraGranted =
+      result[PermissionsAndroid.PERMISSIONS.CAMERA] ===
+      PermissionsAndroid.RESULTS.GRANTED;
+    const micGranted =
+      result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
+      PermissionsAndroid.RESULTS.GRANTED;
+
+    return cameraGranted && micGranted;
+  } catch (err) {
+    console.warn('[permissions] error:', err);
+    return false;
+  }
 }
 
 // ─── Root screen ────────────────────────────────────────────
@@ -153,7 +170,6 @@ export default function MeetingScreen() {
       if (payload.meetingId !== meetingId) return;
       setAdmitRetry((n) => n + 1);
     };
-
     const onRejected = (payload: { meetingId: string }) => {
       if (payload.meetingId !== meetingId) return;
       setRejected(true);
@@ -175,7 +191,6 @@ export default function MeetingScreen() {
   }, [meetingId, router]);
 
   // ─── EXPO GO FALLBACK ───────────────────────────────────
-  // Expo Go doesn't support the WebRTC native module.
   if (isExpoGo) {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -189,9 +204,6 @@ export default function MeetingScreen() {
             Expo Go doesn't support live video. Install the MitMe APK to
             join meetings from your phone.
           </Text>
-          <Text style={[s.errorText, { marginBottom: 24, fontSize: 12 }]}>
-            Chat, contacts, classes, and messaging all work fine in Expo Go.
-          </Text>
           <Pressable style={s.leaveBtn} onPress={handleLeave}>
             <Text style={s.leaveBtnText}>Go back</Text>
           </Pressable>
@@ -200,7 +212,6 @@ export default function MeetingScreen() {
     );
   }
 
-  // ─── REJECTED state ─────────────────────────────────────
   if (rejected) {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -219,7 +230,6 @@ export default function MeetingScreen() {
     );
   }
 
-  // ─── PENDING state (waiting room) ───────────────────────
   if (joinState === 'pending') {
     return (
       <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
@@ -270,7 +280,6 @@ export default function MeetingScreen() {
     );
   }
 
-  // ─── ADMITTED — full meeting room (APK only) ────────────
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <RNStatusBar barStyle="light-content" />
@@ -301,7 +310,7 @@ export default function MeetingScreen() {
   );
 }
 
-// ─── Inner UI (needs LiveKitRoom as parent) ─────────────────
+// ─── Inner UI ───────────────────────────────────────────────
 function MeetingUI({
   meetingId,
   title,
@@ -325,13 +334,28 @@ function MeetingUI({
   const [cameraOn, setCameraOn] = useState(false);
   const [remoteBoardOpen, setRemoteBoardOpen] = useState(false);
   const [waiting, setWaiting] = useState<WaitingParticipant[]>([]);
+  const [permissionsGranted, setPermissionsGranted] = useState(false);
+  const [togglingMic, setTogglingMic] = useState(false);
+  const [togglingCamera, setTogglingCamera] = useState(false);
 
   const isHost = useMemo(
     () => userRole === 'teacher' || userRole === 'admin',
     [userRole]
   );
 
-  // ─── iOS audio session ─────────────────────────────────
+  // ─── Request permissions on mount ──────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const granted = await requestMediaPermissions();
+      if (!cancelled) setPermissionsGranted(granted);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ─── iOS audio session ──────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
@@ -354,7 +378,7 @@ function MeetingUI({
     };
   }, [socket, meetingId]);
 
-  // ─── Listen for whiteboard open/close from other users ─
+  // ─── Whiteboard open/close from others ─────────────────
   useEffect(() => {
     if (!socket) return;
     const onState = (payload: {
@@ -372,7 +396,7 @@ function MeetingUI({
     };
   }, [socket]);
 
-  // ─── Host: subscribe to waiting-room requests ──────────
+  // ─── Host: subscribe to waiting room ───────────────────
   useEffect(() => {
     if (!socket || !isHost) return;
 
@@ -427,7 +451,7 @@ function MeetingUI({
     };
   }, [socket, meetingId, isHost, play]);
 
-  // ─── All camera + screen share tracks ──────────────────
+  // ─── Tracks ────────────────────────────────────────────
   const tracks: TrackRef[] = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -452,18 +476,83 @@ function MeetingUI({
       t.source === Track.Source.Camera && t.participant?.isLocal !== true
   );
 
+  // ─── Toggle mic ────────────────────────────────────────
   const toggleMic = async () => {
-    if (!localParticipant) return;
+    if (!localParticipant || togglingMic) return;
+
+    // Ensure permissions first
+    if (!permissionsGranted) {
+      const granted = await requestMediaPermissions();
+      setPermissionsGranted(granted);
+      if (!granted) {
+        Alert.alert(
+          'Microphone permission required',
+          'Please enable microphone access in your phone settings.'
+        );
+        return;
+      }
+    }
+
+    setTogglingMic(true);
     const next = !muted;
-    await localParticipant.setMicrophoneEnabled(!next);
-    setMuted(next);
+    try {
+      await localParticipant.setMicrophoneEnabled(!next);
+      setMuted(next);
+      console.log('[mic] toggled to', !next ? 'live' : 'muted');
+    } catch (err) {
+      console.warn('[mic] toggle failed:', err);
+      Alert.alert('MitMe', 'Could not toggle microphone.');
+    } finally {
+      setTogglingMic(false);
+    }
   };
 
+  // ─── Toggle camera ─────────────────────────────────────
   const toggleCamera = async () => {
-    if (!localParticipant) return;
+    if (!localParticipant || togglingCamera) return;
+
+    if (!permissionsGranted) {
+      const granted = await requestMediaPermissions();
+      setPermissionsGranted(granted);
+      if (!granted) {
+        Alert.alert(
+          'Camera permission required',
+          'Please enable camera access in your phone settings.'
+        );
+        return;
+      }
+    }
+
+    setTogglingCamera(true);
     const next = !cameraOn;
-    await localParticipant.setCameraEnabled(next);
-    setCameraOn(next);
+    try {
+      await localParticipant.setCameraEnabled(next);
+      setCameraOn(next);
+      console.log('[camera] toggled to', next ? 'on' : 'off');
+    } catch (err) {
+      console.warn('[camera] toggle failed:', err);
+      Alert.alert('MitMe', 'Could not toggle camera.');
+    } finally {
+      setTogglingCamera(false);
+    }
+  };
+
+  // ─── Share screen ──────────────────────────────────────
+  const shareScreen = async () => {
+    if (!localParticipant) return;
+    try {
+      await localParticipant.setScreenShareEnabled(true);
+      Alert.alert(
+        'Screen share started',
+        'Screen sharing is active. Tap the button again to stop.'
+      );
+    } catch (err: any) {
+      console.warn('[share] failed:', err);
+      Alert.alert(
+        'Screen share unavailable',
+        'Screen sharing from mobile requires additional setup. Try from web.'
+      );
+    }
   };
 
   const confirmLeave = () => {
@@ -529,7 +618,7 @@ function MeetingUI({
         </Pressable>
       )}
 
-      {/* Host: waiting room panel */}
+      {/* Host waiting room */}
       {isHost && waiting.length > 0 && (
         <View style={s.hostPanel}>
           <View style={s.hostPanelHeader}>
@@ -576,7 +665,6 @@ function MeetingUI({
       <View style={s.stage}>
         {isScreenShareActive ? (
           <>
-            {/* Screen share takes the whole stage */}
             {tracks
               .filter((t) => t.source === Track.Source.ScreenShare)
               .map((track, i) => {
@@ -600,7 +688,6 @@ function MeetingUI({
                 );
               })}
 
-            {/* Remote cameras row */}
             <View style={s.tilesRow}>
               {remoteCameras.map((track, i) => {
                 if (!isTrackReference(track)) {
@@ -633,7 +720,6 @@ function MeetingUI({
               })}
             </View>
 
-            {/* Self-view PiP */}
             {myCamera && (
               <View style={s.selfView}>
                 <VideoView
@@ -649,7 +735,6 @@ function MeetingUI({
             )}
           </>
         ) : (
-          /* Normal grid — no screen share */
           <View style={s.tiles}>
             {tracks.map((track, i) => {
               if (!isTrackReference(track)) {
@@ -702,8 +787,13 @@ function MeetingUI({
       {/* Controls */}
       <View style={s.controls}>
         <Pressable
-          style={[s.control, muted ? s.controlDefault : s.controlActive]}
+          style={[
+            s.control,
+            muted ? s.controlDefault : s.controlActive,
+            togglingMic && { opacity: 0.5 },
+          ]}
           onPress={toggleMic}
+          disabled={togglingMic}
         >
           {muted ? (
             <MicOff size={22} color="#fff" />
@@ -713,14 +803,26 @@ function MeetingUI({
         </Pressable>
 
         <Pressable
-          style={[s.control, cameraOn ? s.controlActive : s.controlDefault]}
+          style={[
+            s.control,
+            cameraOn ? s.controlActive : s.controlDefault,
+            togglingCamera && { opacity: 0.5 },
+          ]}
           onPress={toggleCamera}
+          disabled={togglingCamera}
         >
           {cameraOn ? (
             <VideoIcon size={22} color="#fff" />
           ) : (
             <VideoOff size={22} color="#fff" />
           )}
+        </Pressable>
+
+        <Pressable
+          style={[s.control, s.controlDefault]}
+          onPress={shareScreen}
+        >
+          <MonitorUp size={22} color="#fff" />
         </Pressable>
 
         <Pressable
@@ -1052,6 +1154,7 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.lg,
     paddingTop: spacing.sm,
+    flexWrap: 'wrap',
   },
   control: {
     width: 54,
