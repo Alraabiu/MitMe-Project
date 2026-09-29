@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
@@ -11,6 +11,9 @@ import {
   ScrollView,
   PermissionsAndroid,
   Platform,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Constants from 'expo-constants';
@@ -27,11 +30,14 @@ import {
   UserCheck,
   Check,
   X,
+  MessageCircle,
+  Send,
 } from 'lucide-react-native';
 import { api } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
 import { useSocket } from '../src/hooks/useSocket';
 import { useNotificationSound } from '../src/hooks/useNotificationSound';
+import { useMeetingChat } from '../src/hooks/useMeetingChat';
 import { colors, spacing, radii, font } from '../src/theme';
 import type { Socket } from 'socket.io-client';
 
@@ -90,10 +96,9 @@ interface TrackRef {
   publication?: any;
 }
 
-// ─── Android permission helper ──────────────────────────────
+// ─── Android permission helpers ─────────────────────────────
 async function checkAndroidPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
-
   try {
     const camera = await PermissionsAndroid.check(
       PermissionsAndroid.PERMISSIONS.CAMERA
@@ -109,13 +114,11 @@ async function checkAndroidPermissions(): Promise<boolean> {
 
 async function requestAndroidPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
-
   try {
     const result = await PermissionsAndroid.requestMultiple([
       PermissionsAndroid.PERMISSIONS.CAMERA,
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
     ]);
-
     return (
       result[PermissionsAndroid.PERMISSIONS.CAMERA] ===
         PermissionsAndroid.RESULTS.GRANTED &&
@@ -148,14 +151,12 @@ export default function MeetingScreen() {
   // ─── Check/request permissions FIRST ────────────────────
   useEffect(() => {
     if (isExpoGo) return;
-
     (async () => {
       const already = await checkAndroidPermissions();
       if (already) {
         setPermState('granted');
         return;
       }
-
       const granted = await requestAndroidPermissions();
       setPermState(granted ? 'granted' : 'denied');
     })();
@@ -361,11 +362,6 @@ export default function MeetingScreen() {
           serverUrl={media.url}
           token={media.token}
           connect
-          // NOTE: we do NOT pass `audio video` here — we enable them
-          // explicitly via setMicrophoneEnabled / setCameraEnabled
-          // after the user taps the buttons. This avoids the WebRTC
-          // internal state breaking when permissions weren't granted
-          // during LiveKit's initial connect.
           onDisconnected={handleLeave}
           onError={(err: Error) => {
             console.warn('[livekit] error:', err);
@@ -413,6 +409,18 @@ function MeetingUI({
   const [togglingMic, setTogglingMic] = useState(false);
   const [togglingCamera, setTogglingCamera] = useState(false);
   const [togglingShare, setTogglingShare] = useState(false);
+
+  // Chat state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const chatScrollRef = useRef<ScrollView>(null);
+
+  const {
+    messages: chatMessages,
+    send: sendChat,
+    unread: chatUnread,
+    markRead: markChatRead,
+  } = useMeetingChat();
 
   const isHost = useMemo(
     () => userRole === 'teacher' || userRole === 'admin',
@@ -521,7 +529,6 @@ function MeetingUI({
     { onlySubscribed: false }
   );
 
-  // Debug log
   useEffect(() => {
     console.log(
       '[tracks] count:',
@@ -554,7 +561,7 @@ function MeetingUI({
   const toggleMic = async () => {
     if (!localParticipant || togglingMic) return;
     setTogglingMic(true);
-    const willBeEnabled = muted; // currently muted → will enable
+    const willBeEnabled = muted;
     try {
       console.log('[mic] setMicrophoneEnabled', willBeEnabled);
       await localParticipant.setMicrophoneEnabled(willBeEnabled);
@@ -628,6 +635,35 @@ function MeetingUI({
     });
   };
 
+  // ─── Chat helpers ───────────────────────────────────────
+  const openChat = () => {
+    setChatOpen(true);
+    markChatRead();
+  };
+
+  const closeChat = () => {
+    setChatOpen(false);
+  };
+
+  const handleSend = async () => {
+    const text = chatInput.trim();
+    if (!text) return;
+    setChatInput('');
+    await sendChat(text);
+    setTimeout(
+      () => chatScrollRef.current?.scrollToEnd({ animated: true }),
+      100
+    );
+  };
+
+  const formatTime = (ts: number) => {
+    const d = new Date(ts);
+    return `${d.getHours().toString().padStart(2, '0')}:${d
+      .getMinutes()
+      .toString()
+      .padStart(2, '0')}`;
+  };
+
   const admit = async (userId: string) => {
     try {
       await api.post(`/meetings/${meetingId}/admit/${userId}`);
@@ -648,6 +684,7 @@ function MeetingUI({
 
   return (
     <>
+      {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>
@@ -658,6 +695,7 @@ function MeetingUI({
         <View style={s.liveDot} />
       </View>
 
+      {/* Remote whiteboard banner */}
       {remoteBoardOpen && (
         <Pressable style={s.boardBanner} onPress={openWhiteboard}>
           <PenTool size={14} color="#fff" />
@@ -670,6 +708,7 @@ function MeetingUI({
         </Pressable>
       )}
 
+      {/* Host waiting room */}
       {isHost && waiting.length > 0 && (
         <View style={s.hostPanel}>
           <View style={s.hostPanelHeader}>
@@ -712,6 +751,7 @@ function MeetingUI({
         </View>
       )}
 
+      {/* Video stage */}
       <View style={s.stage}>
         {isScreenShareActive ? (
           <>
@@ -834,6 +874,7 @@ function MeetingUI({
         )}
       </View>
 
+      {/* Controls */}
       <View style={s.controls}>
         <Pressable
           style={[
@@ -882,10 +923,118 @@ function MeetingUI({
           <PenTool size={22} color="#fff" />
         </Pressable>
 
+        {/* ─── Chat button ─────────────────────────────── */}
+        <Pressable
+          style={[s.control, chatOpen ? s.controlActive : s.controlDefault]}
+          onPress={openChat}
+        >
+          <MessageCircle size={22} color="#fff" />
+          {chatUnread > 0 && !chatOpen && (
+            <View style={s.chatBadge}>
+              <Text style={s.chatBadgeText}>
+                {chatUnread > 99 ? '99+' : chatUnread}
+              </Text>
+            </View>
+          )}
+        </Pressable>
+
         <Pressable style={[s.control, s.controlEnd]} onPress={confirmLeave}>
           <PhoneOff size={22} color="#fff" />
         </Pressable>
       </View>
+
+      {/* ─── Chat modal ───────────────────────────────── */}
+      <Modal
+        visible={chatOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={closeChat}
+      >
+        <KeyboardAvoidingView
+          style={s.chatBackdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={s.chatPanel}>
+            <View style={s.chatHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.chatTitle}>Chat</Text>
+                <Text style={s.chatSub}>
+                  {chatMessages.length}{' '}
+                  {chatMessages.length === 1 ? 'message' : 'messages'}
+                </Text>
+              </View>
+              <Pressable style={s.chatClose} onPress={closeChat}>
+                <X size={18} color="#fff" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              ref={chatScrollRef}
+              style={s.chatList}
+              contentContainerStyle={{ paddingBottom: 8 }}
+              onContentSizeChange={() =>
+                chatScrollRef.current?.scrollToEnd({ animated: true })
+              }
+            >
+              {chatMessages.length === 0 && (
+                <Text style={s.chatEmpty}>
+                  No messages yet. Say hi! 👋
+                </Text>
+              )}
+
+              {chatMessages.map((m) => (
+                <View
+                  key={m.id}
+                  style={[
+                    s.chatMsg,
+                    m.isOwn ? s.chatMsgOwn : s.chatMsgOther,
+                  ]}
+                >
+                  {!m.isOwn && (
+                    <Text style={s.chatSender}>{m.sender}</Text>
+                  )}
+                  <View
+                    style={[
+                      s.chatBubble,
+                      m.isOwn ? s.chatBubbleOwn : s.chatBubbleOther,
+                    ]}
+                  >
+                    <Text
+                      style={m.isOwn ? s.chatTextOwn : s.chatTextOther}
+                    >
+                      {m.text}
+                    </Text>
+                  </View>
+                  <Text style={s.chatTime}>{formatTime(m.timestamp)}</Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={s.chatComposer}>
+              <TextInput
+                style={s.chatInput}
+                placeholder="Write a message…"
+                placeholderTextColor="#888"
+                value={chatInput}
+                onChangeText={setChatInput}
+                onSubmitEditing={handleSend}
+                returnKeyType="send"
+                multiline
+              />
+              <Pressable
+                style={[
+                  s.chatSend,
+                  !chatInput.trim() && { opacity: 0.4 },
+                ]}
+                onPress={handleSend}
+                disabled={!chatInput.trim()}
+              >
+                <Send size={18} color="#fff" />
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </>
   );
 }
@@ -1216,4 +1365,149 @@ const s = StyleSheet.create({
   controlDefault: { backgroundColor: '#29243a' },
   controlActive: { backgroundColor: colors.purple },
   controlEnd: { backgroundColor: colors.danger },
+
+  // Chat button badge
+  chatBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: colors.danger,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  chatBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+
+  // Chat modal
+  chatBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  chatPanel: {
+    backgroundColor: '#141120',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '75%',
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderTopWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  chatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    marginBottom: spacing.md,
+  },
+  chatTitle: {
+    color: '#fff',
+    fontSize: font.lg,
+    fontWeight: '800',
+  },
+  chatSub: {
+    color: '#9b94b8',
+    fontSize: font.sm,
+    marginTop: 2,
+  },
+  chatClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#29243a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatList: {
+    flexGrow: 0,
+    maxHeight: 380,
+  },
+  chatEmpty: {
+    color: '#6b6480',
+    textAlign: 'center',
+    paddingVertical: 40,
+    fontSize: font.md,
+  },
+  chatMsg: {
+    marginBottom: spacing.md,
+    maxWidth: '85%',
+  },
+  chatMsgOwn: {
+    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  chatMsgOther: {
+    alignSelf: 'flex-start',
+    alignItems: 'flex-start',
+  },
+  chatSender: {
+    color: '#9b94b8',
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 2,
+    paddingHorizontal: 4,
+  },
+  chatBubble: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 16,
+  },
+  chatBubbleOwn: {
+    backgroundColor: colors.purple,
+  },
+  chatBubbleOther: {
+    backgroundColor: '#29243a',
+  },
+  chatTextOwn: {
+    color: '#fff',
+    fontSize: font.md,
+  },
+  chatTextOther: {
+    color: '#fff',
+    fontSize: font.md,
+  },
+  chatTime: {
+    color: '#6b6480',
+    fontSize: 10,
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  chatComposer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  chatInput: {
+    flex: 1,
+    backgroundColor: '#1c1830',
+    color: '#fff',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: 20,
+    fontSize: font.md,
+    maxHeight: 100,
+    minHeight: 42,
+  },
+  chatSend: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
