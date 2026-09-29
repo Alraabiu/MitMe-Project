@@ -82,6 +82,7 @@ interface WaitingParticipant {
 }
 
 type JoinState = 'loading' | 'pending' | 'admitted' | 'error';
+type PermState = 'checking' | 'granted' | 'denied';
 
 interface TrackRef {
   source: string;
@@ -89,8 +90,24 @@ interface TrackRef {
   publication?: any;
 }
 
-// ─── Permission helper ──────────────────────────────────────
-async function requestMediaPermissions(): Promise<boolean> {
+// ─── Android permission helper ──────────────────────────────
+async function checkAndroidPermissions(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+
+  try {
+    const camera = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.CAMERA
+    );
+    const mic = await PermissionsAndroid.check(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO
+    );
+    return camera && mic;
+  } catch {
+    return false;
+  }
+}
+
+async function requestAndroidPermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') return true;
 
   try {
@@ -99,16 +116,13 @@ async function requestMediaPermissions(): Promise<boolean> {
       PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
     ]);
 
-    const cameraGranted =
+    return (
       result[PermissionsAndroid.PERMISSIONS.CAMERA] ===
-      PermissionsAndroid.RESULTS.GRANTED;
-    const micGranted =
+        PermissionsAndroid.RESULTS.GRANTED &&
       result[PermissionsAndroid.PERMISSIONS.RECORD_AUDIO] ===
-      PermissionsAndroid.RESULTS.GRANTED;
-
-    return cameraGranted && micGranted;
-  } catch (err) {
-    console.warn('[permissions] error:', err);
+        PermissionsAndroid.RESULTS.GRANTED
+    );
+  } catch {
     return false;
   }
 }
@@ -126,9 +140,26 @@ export default function MeetingScreen() {
 
   const [media, setMedia] = useState<MediaInfo | null>(null);
   const [joinState, setJoinState] = useState<JoinState>('loading');
+  const [permState, setPermState] = useState<PermState>('checking');
   const [error, setError] = useState('');
   const [admitRetry, setAdmitRetry] = useState(0);
   const [rejected, setRejected] = useState(false);
+
+  // ─── Check/request permissions FIRST ────────────────────
+  useEffect(() => {
+    if (isExpoGo) return;
+
+    (async () => {
+      const already = await checkAndroidPermissions();
+      if (already) {
+        setPermState('granted');
+        return;
+      }
+
+      const granted = await requestAndroidPermissions();
+      setPermState(granted ? 'granted' : 'denied');
+    })();
+  }, []);
 
   // ─── Fetch LiveKit token ────────────────────────────────
   useEffect(() => {
@@ -162,10 +193,9 @@ export default function MeetingScreen() {
     };
   }, [meetingId, admitRetry]);
 
-  // ─── Listen for admission/rejection while pending ───────
+  // ─── Admission / rejection listener ─────────────────────
   useEffect(() => {
     if (!socket || !meetingId) return;
-
     const onAdmitted = (payload: { meetingId: string }) => {
       if (payload.meetingId !== meetingId) return;
       setAdmitRetry((n) => n + 1);
@@ -174,7 +204,6 @@ export default function MeetingScreen() {
       if (payload.meetingId !== meetingId) return;
       setRejected(true);
     };
-
     socket.on('meeting:admitted', onAdmitted);
     socket.on('meeting:rejected', onRejected);
     return () => {
@@ -206,6 +235,49 @@ export default function MeetingScreen() {
           </Text>
           <Pressable style={s.leaveBtn} onPress={handleLeave}>
             <Text style={s.leaveBtnText}>Go back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ─── PERMISSION CHECK SCREEN ────────────────────────────
+  if (permState === 'checking') {
+    return (
+      <SafeAreaView style={s.safe}>
+        <View style={s.center}>
+          <ActivityIndicator size="large" color={colors.purple} />
+          <Text style={s.loadingText}>Preparing camera and microphone…</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (permState === 'denied') {
+    return (
+      <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
+        <RNStatusBar barStyle="light-content" />
+        <View style={s.center}>
+          <VideoOff size={48} color={colors.danger} />
+          <Text style={s.errorTitle}>Permissions required</Text>
+          <Text style={s.errorText}>
+            MitMe needs camera and microphone access for meetings. Please
+            grant them in your phone's settings, then try again.
+          </Text>
+          <Pressable
+            style={s.leaveBtn}
+            onPress={async () => {
+              const granted = await requestAndroidPermissions();
+              setPermState(granted ? 'granted' : 'denied');
+            }}
+          >
+            <Text style={s.leaveBtnText}>Try again</Text>
+          </Pressable>
+          <Pressable
+            style={[s.leaveOutlineBtn, { marginTop: spacing.md }]}
+            onPress={handleLeave}
+          >
+            <Text style={s.leaveOutlineBtnText}>Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -280,6 +352,7 @@ export default function MeetingScreen() {
     );
   }
 
+  // ─── ADMITTED + PERMISSIONS OK ──────────────────────────
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <RNStatusBar barStyle="light-content" />
@@ -288,8 +361,11 @@ export default function MeetingScreen() {
           serverUrl={media.url}
           token={media.token}
           connect
-          audio
-          video
+          // NOTE: we do NOT pass `audio video` here — we enable them
+          // explicitly via setMicrophoneEnabled / setCameraEnabled
+          // after the user taps the buttons. This avoids the WebRTC
+          // internal state breaking when permissions weren't granted
+          // during LiveKit's initial connect.
           onDisconnected={handleLeave}
           onError={(err: Error) => {
             console.warn('[livekit] error:', err);
@@ -334,26 +410,14 @@ function MeetingUI({
   const [cameraOn, setCameraOn] = useState(false);
   const [remoteBoardOpen, setRemoteBoardOpen] = useState(false);
   const [waiting, setWaiting] = useState<WaitingParticipant[]>([]);
-  const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [togglingMic, setTogglingMic] = useState(false);
   const [togglingCamera, setTogglingCamera] = useState(false);
+  const [togglingShare, setTogglingShare] = useState(false);
 
   const isHost = useMemo(
     () => userRole === 'teacher' || userRole === 'admin',
     [userRole]
   );
-
-  // ─── Request permissions on mount ──────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const granted = await requestMediaPermissions();
-      if (!cancelled) setPermissionsGranted(granted);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   // ─── iOS audio session ──────────────────────────────────
   useEffect(() => {
@@ -369,7 +433,7 @@ function MeetingUI({
     };
   }, []);
 
-  // ─── Join the socket room ──────────────────────────────
+  // ─── Socket join ────────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
     socket.emit('meeting:join', meetingId);
@@ -378,7 +442,7 @@ function MeetingUI({
     };
   }, [socket, meetingId]);
 
-  // ─── Whiteboard open/close from others ─────────────────
+  // ─── Whiteboard sync ────────────────────────────────────
   useEffect(() => {
     if (!socket) return;
     const onState = (payload: {
@@ -396,7 +460,7 @@ function MeetingUI({
     };
   }, [socket]);
 
-  // ─── Host: subscribe to waiting room ───────────────────
+  // ─── Host waiting-room subscription ────────────────────
   useEffect(() => {
     if (!socket || !isHost) return;
 
@@ -425,7 +489,6 @@ function MeetingUI({
       };
     }) => {
       if (payload.meetingId !== meetingId) return;
-
       let isNew = false;
       setWaiting((prev) => {
         if (prev.some((p) => p.user._id === payload.participant._id)) {
@@ -437,13 +500,11 @@ function MeetingUI({
           { _id: payload.participant._id, user: payload.participant },
         ];
       });
-
       if (isNew) play('request');
     };
 
     socket.on('meeting:pending-list', onList);
     socket.on('meeting:join-request', onRequest);
-
     return () => {
       socket.emit('meeting:unwatch-requests', meetingId);
       socket.off('meeting:pending-list', onList);
@@ -451,7 +512,7 @@ function MeetingUI({
     };
   }, [socket, meetingId, isHost, play]);
 
-  // ─── Tracks ────────────────────────────────────────────
+  // ─── Tracks ─────────────────────────────────────────────
   const tracks: TrackRef[] = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -459,6 +520,19 @@ function MeetingUI({
     ],
     { onlySubscribed: false }
   );
+
+  // Debug log
+  useEffect(() => {
+    console.log(
+      '[tracks] count:',
+      tracks.length,
+      tracks.map((t) => ({
+        source: t.source,
+        isLocal: t.participant?.isLocal,
+        isRef: isTrackReference(t),
+      }))
+    );
+  }, [tracks]);
 
   const isScreenShareActive = tracks.some(
     (t) => t.source === Track.Source.ScreenShare
@@ -476,82 +550,62 @@ function MeetingUI({
       t.source === Track.Source.Camera && t.participant?.isLocal !== true
   );
 
-  // ─── Toggle mic ────────────────────────────────────────
+  // ─── Toggle mic ─────────────────────────────────────────
   const toggleMic = async () => {
     if (!localParticipant || togglingMic) return;
-
-    // Ensure permissions first
-    if (!permissionsGranted) {
-      const granted = await requestMediaPermissions();
-      setPermissionsGranted(granted);
-      if (!granted) {
-        Alert.alert(
-          'Microphone permission required',
-          'Please enable microphone access in your phone settings.'
-        );
-        return;
-      }
-    }
-
     setTogglingMic(true);
-    const next = !muted;
+    const willBeEnabled = muted; // currently muted → will enable
     try {
-      await localParticipant.setMicrophoneEnabled(!next);
-      setMuted(next);
-      console.log('[mic] toggled to', !next ? 'live' : 'muted');
+      console.log('[mic] setMicrophoneEnabled', willBeEnabled);
+      await localParticipant.setMicrophoneEnabled(willBeEnabled);
+      setMuted(!willBeEnabled);
+      console.log('[mic] success, muted =', !willBeEnabled);
     } catch (err) {
-      console.warn('[mic] toggle failed:', err);
-      Alert.alert('MitMe', 'Could not toggle microphone.');
+      console.warn('[mic] failed:', err);
+      Alert.alert(
+        'Microphone error',
+        'Could not start the microphone. Check app permissions in your phone settings.'
+      );
     } finally {
       setTogglingMic(false);
     }
   };
 
-  // ─── Toggle camera ─────────────────────────────────────
+  // ─── Toggle camera ──────────────────────────────────────
   const toggleCamera = async () => {
     if (!localParticipant || togglingCamera) return;
-
-    if (!permissionsGranted) {
-      const granted = await requestMediaPermissions();
-      setPermissionsGranted(granted);
-      if (!granted) {
-        Alert.alert(
-          'Camera permission required',
-          'Please enable camera access in your phone settings.'
-        );
-        return;
-      }
-    }
-
     setTogglingCamera(true);
-    const next = !cameraOn;
+    const willBeEnabled = !cameraOn;
     try {
-      await localParticipant.setCameraEnabled(next);
-      setCameraOn(next);
-      console.log('[camera] toggled to', next ? 'on' : 'off');
+      console.log('[camera] setCameraEnabled', willBeEnabled);
+      await localParticipant.setCameraEnabled(willBeEnabled);
+      setCameraOn(willBeEnabled);
+      console.log('[camera] success, cameraOn =', willBeEnabled);
     } catch (err) {
-      console.warn('[camera] toggle failed:', err);
-      Alert.alert('MitMe', 'Could not toggle camera.');
+      console.warn('[camera] failed:', err);
+      Alert.alert(
+        'Camera error',
+        'Could not start the camera. Check app permissions in your phone settings.'
+      );
     } finally {
       setTogglingCamera(false);
     }
   };
 
-  // ─── Share screen ──────────────────────────────────────
+  // ─── Screen share ───────────────────────────────────────
   const shareScreen = async () => {
-    if (!localParticipant) return;
+    if (!localParticipant || togglingShare) return;
+    setTogglingShare(true);
     try {
       await localParticipant.setScreenShareEnabled(true);
-      Alert.alert(
-        'Screen share started',
-        'Screen sharing is active. Tap the button again to stop.'
-      );
     } catch (err: any) {
       console.warn('[share] failed:', err);
       Alert.alert(
         'Screen share unavailable',
-        'Screen sharing from mobile requires additional setup. Try from web.'
+        'Screen sharing from mobile requires the MitMe APK built with the screen-capture module. Try from web.'
       );
+    } finally {
+      setTogglingShare(false);
     }
   };
 
@@ -594,7 +648,6 @@ function MeetingUI({
 
   return (
     <>
-      {/* Header */}
       <View style={s.header}>
         <View style={{ flex: 1 }}>
           <Text style={s.title} numberOfLines={1}>
@@ -605,7 +658,6 @@ function MeetingUI({
         <View style={s.liveDot} />
       </View>
 
-      {/* Remote whiteboard banner */}
       {remoteBoardOpen && (
         <Pressable style={s.boardBanner} onPress={openWhiteboard}>
           <PenTool size={14} color="#fff" />
@@ -618,7 +670,6 @@ function MeetingUI({
         </Pressable>
       )}
 
-      {/* Host waiting room */}
       {isHost && waiting.length > 0 && (
         <View style={s.hostPanel}>
           <View style={s.hostPanelHeader}>
@@ -661,7 +712,6 @@ function MeetingUI({
         </View>
       )}
 
-      {/* Video stage */}
       <View style={s.stage}>
         {isScreenShareActive ? (
           <>
@@ -784,7 +834,6 @@ function MeetingUI({
         )}
       </View>
 
-      {/* Controls */}
       <View style={s.controls}>
         <Pressable
           style={[
@@ -821,6 +870,7 @@ function MeetingUI({
         <Pressable
           style={[s.control, s.controlDefault]}
           onPress={shareScreen}
+          disabled={togglingShare}
         >
           <MonitorUp size={22} color="#fff" />
         </Pressable>
