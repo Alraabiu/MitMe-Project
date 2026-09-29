@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, router } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Link, useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -10,102 +10,54 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Eye, EyeOff, Lock, User as UserIcon } from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
-import { colors, spacing, radii, font, shadows } from '../../src/theme';
-import type { AuthResponse, User } from '../../src/types';
-import { GoogleButton } from '../../src/components/GoogleSignInButton';
-import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
+import {
+  colors,
+  spacing,
+  radii,
+  font,
+  weights,
+  shadows,
+} from '../../src/theme';
+import type { AuthResponse } from '../../src/types';
 
 export default function LoginScreen() {
-  const { login } = useAuth();
-  const { signInWithGoogle, googleLoading } = useGoogleAuth();
-
+  const router = useRouter();
+  const { user, login } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  /**
-   * Tolerant parser — accepts both common backend response shapes:
-   *   A) { accessToken, refreshToken, user }
-   *   B) { success: true, data: { token, refreshToken, user } }
-   *   C) { success: true, data: { accessToken, refreshToken, user } }
-   * Returns { access, refresh, user } or null.
-   */
-  const extractAuth = (
-    payload: any
-  ): { access: string; refresh: string | null; user: User } | null => {
-    if (!payload) return null;
-
-    const root = payload?.data ?? payload;
-
-    const access =
-      root?.accessToken ||
-      root?.token ||
-      root?.access_token ||
-      null;
-
-    const refresh =
-      root?.refreshToken ||
-      root?.refresh_token ||
-      null;
-
-    const user: User | undefined =
-      root?.user || payload?.user;
-
-    if (!access || !user) return null;
-
-    return { access, refresh, user };
-  };
+  useEffect(() => {
+    if (user) router.replace('/(tabs)');
+  }, [user, router]);
 
   const submit = async () => {
     if (!identifier.trim() || !password) {
       return Alert.alert('MitMe', 'Enter your email/username and password.');
     }
-
     setBusy(true);
     try {
       const r = await api.post<AuthResponse>('/auth/login', {
         identifier: identifier.trim(),
         password,
       });
-
-      const auth = extractAuth(r?.data);
-
-      if (!auth) {
-        console.log('[LOGIN] Unexpected response shape:', r?.data);
-        throw new Error(
-          'Unexpected response from server. Check API response shape.'
-        );
+      if (!r.data.accessToken) {
+        throw new Error('Login response did not include an access token.');
       }
-
-      await login(auth.access, auth.refresh ?? '', auth.user);
-      // The (auth) layout's guard redirects automatically once `user` is set.
+      if (!r.data.user) {
+        throw new Error('Login response did not include a user.');
+      }
+      await login(r.data.accessToken, r.data.refreshToken ?? '', r.data.user);
+      router.replace('/(tabs)');
     } catch (e: any) {
-      console.log('[LOGIN ERROR]', {
-        status: e?.response?.status,
-        data: e?.response?.data,
-        message: e?.message,
-      });
-
-      let msg = 'Unable to sign in.';
-
-      if (e?.response?.data?.message) {
-        msg = e.response.data.message;
-      } else if (e?.response?.status) {
-        msg = `Server error (${e.response.status}). Please try again.`;
-      } else if (e?.request) {
-        msg = 'Cannot reach server. Check your internet connection.';
-      } else if (e?.message) {
-        msg = e.message;
-      }
-
-      Alert.alert('MitMe', msg);
+      Alert.alert('MitMe', e?.response?.data?.message || 'Unable to sign in.');
     } finally {
       setBusy(false);
     }
@@ -120,8 +72,9 @@ export default function LoginScreen() {
         <ScrollView
           contentContainerStyle={s.scroll}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          <View style={s.logoWrap}>
+          <View style={s.header}>
             <LinearGradient
               colors={[colors.purpleLight, colors.blue]}
               start={{ x: 0, y: 0 }}
@@ -130,59 +83,60 @@ export default function LoginScreen() {
             >
               <Text style={s.markText}>M</Text>
             </LinearGradient>
-            <Text style={s.brand}>MitMe</Text>
-            <Text style={s.tag}>Connect. Meet. Share.</Text>
+            <Text style={s.h1}>Welcome back</Text>
+            <Text style={s.sub}>
+              Meet people, collaborate and share from one place.
+            </Text>
           </View>
 
-          <Text style={s.h1}>Welcome back</Text>
-          <Text style={s.sub}>
-            Meet people, collaborate and share from one place.
-          </Text>
-
-          <TextInput
-            style={s.input}
-            placeholder="Email or username"
-            placeholderTextColor={colors.muted}
-            value={identifier}
-            onChangeText={setIdentifier}
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!busy && !googleLoading}
-            keyboardType="email-address"
-          />
-
-          <View style={s.passwordWrap}>
+          {/* Identifier */}
+          <View style={s.inputWrap}>
+            <UserIcon size={18} color={colors.mutedLight} style={s.inputIcon} />
             <TextInput
-              style={s.passwordInput}
+              style={s.input}
+              placeholder="Email or username"
+              placeholderTextColor={colors.mutedLight}
+              value={identifier}
+              onChangeText={setIdentifier}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Password with eye toggle */}
+          <View style={s.inputWrap}>
+            <Lock size={18} color={colors.mutedLight} style={s.inputIcon} />
+            <TextInput
+              style={[s.input, s.inputWithEye]}
               placeholder="Password"
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={colors.mutedLight}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
-              editable={!busy && !googleLoading}
               autoCapitalize="none"
               autoCorrect={false}
             />
             <Pressable
-              onPress={() => setShowPassword((v) => !v)}
-              disabled={busy || googleLoading}
-              hitSlop={8}
               style={s.eyeBtn}
+              onPress={() => setShowPassword((v) => !v)}
+              hitSlop={10}
             >
-              <Text style={s.eyeText}>
-                {showPassword ? 'Hide' : 'Show'}
-              </Text>
+              {showPassword ? (
+                <Eye size={20} color={colors.purple} />
+              ) : (
+                <EyeOff size={20} color={colors.mutedLight} />
+              )}
             </Pressable>
           </View>
 
           <Pressable
             style={({ pressed }) => [
               s.btn,
-              pressed && { opacity: 0.9 },
-              (busy || googleLoading) && { opacity: 0.7 },
+              pressed && { opacity: 0.92 },
+              busy && { opacity: 0.6 },
             ]}
             onPress={submit}
-            disabled={busy || googleLoading}
+            disabled={busy}
           >
             <LinearGradient
               colors={[colors.purple, colors.blue]}
@@ -190,31 +144,32 @@ export default function LoginScreen() {
               end={{ x: 1, y: 1 }}
               style={s.btnInner}
             >
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={s.btnText}>Sign in</Text>
-              )}
+              <Text style={s.btnText}>
+                {busy ? 'Signing in…' : 'Sign in'}
+              </Text>
             </LinearGradient>
           </Pressable>
 
-          {/* ─── Google Sign-In ─────────────────────────────── */}
-          <View style={s.dividerRow}>
+          <View style={s.divider}>
             <View style={s.dividerLine} />
             <Text style={s.dividerText}>or continue with</Text>
             <View style={s.dividerLine} />
           </View>
 
-          <GoogleButton
-            onPress={signInWithGoogle}
-            loading={googleLoading}
-            disabled={busy}
-          />
+          <Pressable
+            style={({ pressed }) => [s.googleBtn, pressed && { opacity: 0.9 }]}
+            onPress={() =>
+              Alert.alert('Coming soon', 'Google sign-in will be available shortly.')
+            }
+          >
+            <Text style={s.googleG}>G</Text>
+            <Text style={s.googleText}>Continue with Google</Text>
+          </Pressable>
 
           <View style={s.switchRow}>
             <Text style={s.switchText}>New to MitMe?</Text>
             <Link href="/(auth)/register" asChild>
-              <Pressable disabled={busy || googleLoading}>
+              <Pressable hitSlop={8}>
                 <Text style={s.switchLink}>Create account</Text>
               </Pressable>
             </Link>
@@ -226,104 +181,127 @@ export default function LoginScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: spacing.xxl, justifyContent: 'center', flexGrow: 1 },
-  logoWrap: { alignItems: 'center', marginBottom: spacing.xxxl },
+  safe: { flex: 1, backgroundColor: colors.surface },
+  scroll: {
+    padding: spacing.xxl,
+    justifyContent: 'center',
+    flexGrow: 1,
+    paddingTop: spacing.xxxl,
+    paddingBottom: spacing.xxxl,
+  },
+
+  header: { marginBottom: spacing.xxxl },
   mark: {
     width: 64,
     height: 64,
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
     ...shadows.card,
   },
-  markText: { color: '#fff', fontSize: 32, fontWeight: '900' },
-  brand: { fontSize: font.xxxl, fontWeight: '900', color: colors.ink },
-  tag: { color: colors.muted, marginTop: 4 },
+  markText: { color: '#fff', fontSize: 32, fontWeight: weights.extrabold },
   h1: {
-    fontSize: font.xxl,
-    fontWeight: '800',
+    fontSize: font.xxxl,
+    fontWeight: weights.extrabold,
     color: colors.ink,
-    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   sub: {
     color: colors.muted,
-    marginBottom: spacing.xl,
-    fontSize: font.base,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md + 2,
-    marginBottom: spacing.md,
+    marginTop: 6,
     fontSize: font.md,
-    color: colors.ink,
+    maxWidth: 320,
   },
-  passwordWrap: {
+
+  inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: radii.md,
-    marginBottom: spacing.md,
-    paddingRight: spacing.sm,
-  },
-  passwordInput: {
-    flex: 1,
+    borderRadius: radii.lg,
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    minHeight: 54,
+  },
+  inputIcon: { marginRight: spacing.md },
+  input: {
+    flex: 1,
     paddingVertical: spacing.md + 2,
     fontSize: font.md,
     color: colors.ink,
   },
+  inputWithEye: { paddingRight: spacing.xs },
   eyeBtn: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: -spacing.sm,
   },
-  eyeText: {
-    color: colors.purple,
-    fontWeight: '700',
-    fontSize: font.sm ?? 12,
-  },
+
   btn: {
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     overflow: 'hidden',
     marginTop: spacing.sm,
     ...shadows.card,
   },
   btnInner: {
-    paddingVertical: spacing.md + 2,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
   },
-  btnText: { color: '#fff', fontWeight: '800', fontSize: font.md },
-  dividerRow: {
+  btnText: {
+    color: '#fff',
+    fontWeight: weights.extrabold,
+    fontSize: font.md,
+    letterSpacing: 0.3,
+  },
+
+  divider: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
     marginTop: spacing.xl,
-    marginBottom: 4,
+    marginBottom: spacing.lg,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.border },
+  dividerText: { color: colors.muted, fontSize: font.sm },
+
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    marginBottom: spacing.xl,
   },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.muted,
-    fontSize: font.sm ?? 12,
+  googleG: {
+    fontSize: 20,
+    fontWeight: weights.extrabold,
+    color: '#4285F4',
   },
+  googleText: {
+    fontSize: font.md,
+    fontWeight: weights.bold,
+    color: colors.ink,
+  },
+
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     gap: 6,
-    marginTop: spacing.xl,
   },
-  switchText: { color: colors.muted },
-  switchLink: { color: colors.purple, fontWeight: '800' },
+  switchText: { color: colors.muted, fontSize: font.base },
+  switchLink: {
+    color: colors.purple,
+    fontWeight: weights.extrabold,
+    fontSize: font.base,
+  },
 });
