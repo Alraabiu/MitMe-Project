@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,19 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, LogOut, Save } from 'lucide-react-native';
+import {
+  Camera,
+  LogOut,
+  Save,
+  Mail,
+  Phone,
+  AtSign,
+  Circle,
+  Shield,
+  User as UserIcon,
+} from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import { colors, spacing, radii, font, shadows } from '../../src/theme';
@@ -31,14 +42,12 @@ export default function ProfileTab() {
 
   if (!user) return null;
 
-  // ??? Pick avatar ????????????????????????????????????????
+  /* ─── Pick avatar ─────────────────────────────────── */
+
   const pickAvatar = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      return Alert.alert(
-        'MitMe',
-        'We need access to your photos to set an avatar.'
-      );
+      return Alert.alert('MitMe', 'We need access to your photos to set an avatar.');
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -56,7 +65,6 @@ export default function ProfileTab() {
       return Alert.alert('MitMe', 'Could not read that image.');
     }
 
-    // Rough size check (base64 is ~4/3 of the raw bytes)
     const approxBytes = (asset.base64.length * 3) / 4;
     if (approxBytes > MAX_BYTES) {
       return Alert.alert('MitMe', 'Image must be under 2 MB.');
@@ -68,7 +76,8 @@ export default function ProfileTab() {
 
   const removeAvatar = () => setAvatar('');
 
-  // ??? Save profile ???????????????????????????????????????
+  /* ─── Save profile ────────────────────────────────── */
+
   const save = async () => {
     setSaving(true);
     try {
@@ -92,16 +101,14 @@ export default function ProfileTab() {
       updateUser(r.data.user);
       Alert.alert('MitMe', 'Profile saved.');
     } catch (e: any) {
-      Alert.alert(
-        'MitMe',
-        e?.response?.data?.message || 'Could not save profile.'
-      );
+      Alert.alert('MitMe', e?.response?.data?.message || 'Could not save profile.');
     } finally {
       setSaving(false);
     }
   };
 
-  // ??? Logout ?????????????????????????????????????????????
+  /* ─── Logout ──────────────────────────────────────── */
+
   const handleLogout = () => {
     Alert.alert('Sign out?', 'You can sign back in anytime.', [
       { text: 'Cancel', style: 'cancel' },
@@ -110,58 +117,97 @@ export default function ProfileTab() {
   };
 
   const initial = user.displayName.charAt(0).toUpperCase();
+  const role = (user.role || 'user').toLowerCase();
+  const roleLabel =
+    role === 'teacher' ? 'Teacher' : role === 'admin' ? 'Admin' : 'Student';
+  const presence = user.presence || 'offline';
+  const presenceColor =
+    presence === 'online' ? '#168A55' : presence === 'away' ? '#F5A623' : '#999';
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView contentContainerStyle={s.content}>
-          <Text style={s.h1}>Profile</Text>
+        <ScrollView
+          contentContainerStyle={s.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ═══ Gradient Hero ═══════════════════════════ */}
+          <View style={s.hero}>
+            <LinearGradient
+              colors={[colors.purple, colors.blue]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.heroBg}
+            />
 
-          {/* Avatar */}
-          <View style={s.avatarWrap}>
-            <View style={s.avatarRing}>
-              {avatar ? (
-                <Image source={{ uri: avatar }} style={s.avatarImg} />
-              ) : (
-                <View style={s.avatarFallback}>
-                  <Text style={s.avatarFallbackText}>{initial}</Text>
-                </View>
-              )}
+            <View style={s.avatarContainer}>
+              <View style={s.avatarRing}>
+                {avatar ? (
+                  <Image source={{ uri: avatar }} style={s.avatarImg} />
+                ) : (
+                  <View style={s.avatarFallback}>
+                    <Text style={s.avatarFallbackText}>{initial}</Text>
+                  </View>
+                )}
+              </View>
+              <Pressable onPress={pickAvatar} style={s.cameraFab}>
+                <Camera size={14} color="#fff" />
+              </Pressable>
             </View>
 
-            <View style={s.avatarActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  s.outlineBtn,
-                  pressed && { opacity: 0.85 },
-                ]}
-                onPress={pickAvatar}
-              >
-                <Camera size={16} color={colors.ink} />
-                <Text style={s.outlineBtnText}>
-                  {avatar ? 'Change photo' : 'Upload photo'}
-                </Text>
-              </Pressable>
+            <Text style={s.heroName} numberOfLines={1}>
+              {user.displayName}
+            </Text>
+            <Text style={s.heroHandle}>@{user.username}</Text>
 
-              {avatar ? (
-                <Pressable
-                  style={({ pressed }) => [
-                    s.dangerBtn,
-                    pressed && { opacity: 0.85 },
-                  ]}
-                  onPress={removeAvatar}
-                >
-                  <Text style={s.dangerBtnText}>Remove</Text>
-                </Pressable>
-              ) : null}
+            <View style={s.heroBadges}>
+              <View style={s.heroBadge}>
+                <Shield size={12} color="#fff" />
+                <Text style={s.heroBadgeText}>{roleLabel}</Text>
+              </View>
+              <View style={s.heroBadge}>
+                <Circle size={10} color={presenceColor} fill={presenceColor} />
+                <Text style={s.heroBadgeText}>
+                  {presence.charAt(0).toUpperCase() + presence.slice(1)}
+                </Text>
+              </View>
             </View>
           </View>
 
-          {/* Form */}
+          {/* ═══ Stats Row ══════════════════════════════ */}
+          <View style={s.statsRow}>
+            <View style={s.statItem}>
+              <Text style={s.statValue}>{roleLabel}</Text>
+              <Text style={s.statLabel}>Role</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={s.statValue}>
+                {user.presence ? user.presence[0].toUpperCase() : 'O'}
+              </Text>
+              <Text style={s.statLabel}>Status</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={s.statValue}>
+                {avatar ? 'Yes' : 'No'}
+              </Text>
+              <Text style={s.statLabel}>Photo</Text>
+            </View>
+          </View>
+
+          {/* ═══ Edit Profile Card ══════════════════════ */}
           <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardIconWrap}>
+                <UserIcon size={16} color={colors.purple} />
+              </View>
+              <Text style={s.cardTitle}>Edit Profile</Text>
+            </View>
+
             <Text style={s.label}>Display name</Text>
             <TextInput
               style={s.input}
@@ -183,6 +229,10 @@ export default function ProfileTab() {
               multiline
             />
 
+            <View style={s.bioCounter}>
+              <Text style={s.bioCounterText}>{bio.length}/240</Text>
+            </View>
+
             <Pressable
               style={({ pressed }) => [
                 s.saveBtn,
@@ -197,67 +247,136 @@ export default function ProfileTab() {
               ) : (
                 <>
                   <Save size={16} color="#fff" />
-                  <Text style={s.saveBtnText}>Save changes</Text>
+                  <Text style={s.saveBtnText}>Save Changes</Text>
                 </>
               )}
             </Pressable>
+
+            {avatar ? (
+              <Pressable
+                style={({ pressed }) => [
+                  s.removeAvatarBtn,
+                  pressed && { opacity: 0.85 },
+                ]}
+                onPress={removeAvatar}
+              >
+                <Text style={s.removeAvatarText}>Remove photo</Text>
+              </Pressable>
+            ) : null}
           </View>
 
-          {/* Account info */}
+          {/* ═══ Account Card ══════════════════════════ */}
           <View style={s.card}>
-            <Text style={s.section}>Account</Text>
-            <View style={s.row}>
-              <Text style={s.rowLabel}>Username</Text>
-              <Text style={s.rowValue}>@{user.username}</Text>
-            </View>
-            {user.email ? (
-              <View style={s.row}>
-                <Text style={s.rowLabel}>Email</Text>
-                <Text style={s.rowValue}>{user.email}</Text>
+            <View style={s.cardHeader}>
+              <View style={s.cardIconWrap}>
+                <AtSign size={16} color={colors.purple} />
               </View>
+              <Text style={s.cardTitle}>Account Information</Text>
+            </View>
+
+            <InfoRow
+              icon={<AtSign size={16} color={colors.muted} />}
+              label="Username"
+              value={`@${user.username}`}
+            />
+            {user.email ? (
+              <InfoRow
+                icon={<Mail size={16} color={colors.muted} />}
+                label="Email"
+                value={user.email}
+              />
             ) : null}
             {user.phone ? (
-              <View style={s.row}>
-                <Text style={s.rowLabel}>Phone</Text>
-                <Text style={s.rowValue}>{user.phone}</Text>
-              </View>
+              <InfoRow
+                icon={<Phone size={16} color={colors.muted} />}
+                label="Phone"
+                value={user.phone}
+              />
             ) : null}
-            <View style={s.row}>
-              <Text style={s.rowLabel}>Presence</Text>
-              <Text style={s.rowValue}>{user.presence || 'offline'}</Text>
-            </View>
+            <InfoRow
+              icon={
+                <Circle size={16} color={presenceColor} fill={presenceColor} />
+              }
+              label="Presence"
+              value={presence.charAt(0).toUpperCase() + presence.slice(1)}
+            />
           </View>
 
-          {/* Sign out */}
+          {/* ═══ Danger Zone ═══════════════════════════ */}
           <Pressable
             style={({ pressed }) => [s.logoutBtn, pressed && { opacity: 0.85 }]}
             onPress={handleLogout}
           >
             <LogOut size={16} color={colors.danger} />
-            <Text style={s.logoutBtnText}>Sign out</Text>
+            <Text style={s.logoutBtnText}>Sign Out</Text>
           </Pressable>
+
+          <Text style={s.version}>MitMe v1.0.2</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+/* ─── Info Row subcomponent ─────────────────────── */
+
+function InfoRow({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={s.infoRow}>
+      <View style={s.infoRowLeft}>
+        {icon}
+        <Text style={s.infoRowLabel}>{label}</Text>
+      </View>
+      <Text style={s.infoRowValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+/* ═══════════════════════════════════════════════════
+   STYLES
+   ═══════════════════════════════════════════════════ */
+
 const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: spacing.xl, paddingBottom: 120 },
-  h1: {
-    fontSize: font.xxl,
-    fontWeight: '800',
-    color: colors.ink,
-    marginBottom: spacing.xl,
-  },
-  avatarWrap: { alignItems: 'center', marginBottom: spacing.xl },
-  avatarRing: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+  content: { paddingBottom: 120 },
+
+  /* Hero */
+  hero: {
+    alignItems: 'center',
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    paddingHorizontal: spacing.xl,
+    position: 'relative',
     overflow: 'hidden',
-    backgroundColor: colors.purple,
+    marginBottom: spacing.lg,
+  },
+  heroBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 220,
+  },
+  avatarContainer: {
+    marginTop: spacing.lg,
+    position: 'relative',
+  },
+  avatarRing: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
@@ -270,42 +389,106 @@ const s = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: colors.purple,
   },
-  avatarFallbackText: { color: '#fff', fontSize: 42, fontWeight: '900' },
-  avatarActions: {
+  avatarFallbackText: { color: '#fff', fontSize: 48, fontWeight: '900' },
+  cameraFab: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
+  heroName: {
+    marginTop: spacing.lg,
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  heroHandle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: '#EDE7FF',
+    fontWeight: '600',
+  },
+  heroBadges: {
+    marginTop: spacing.md,
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.md,
   },
-  outlineBtn: {
+  heroBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: radii.md,
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
-  outlineBtnText: { color: colors.ink, fontWeight: '700', fontSize: font.sm },
-  dangerBtn: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+  heroBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+
+  /* Stats */
+  statsRow: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    marginHorizontal: spacing.xl,
+    marginTop: -30,
+    marginBottom: spacing.lg,
     borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.danger,
+    paddingVertical: spacing.md,
+    ...shadows.card,
   },
-  dangerBtnText: { color: colors.danger, fontWeight: '700', fontSize: font.sm },
+  statItem: { flex: 1, alignItems: 'center' },
+  statValue: { fontSize: 15, fontWeight: '900', color: colors.ink },
+  statLabel: {
+    fontSize: 10,
+    color: colors.muted,
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '700',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 6,
+  },
+
+  /* Card */
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radii.lg,
     padding: spacing.lg,
+    marginHorizontal: spacing.xl,
     marginBottom: spacing.lg,
     ...shadows.card,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: spacing.lg,
+  },
+  cardIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#F0EBFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
+
+  /* Form */
   label: {
     fontSize: font.sm,
     fontWeight: '700',
@@ -322,43 +505,69 @@ const s = StyleSheet.create({
     fontSize: font.md,
     color: colors.ink,
   },
-  textarea: { minHeight: 80, textAlignVertical: 'top' },
+  textarea: { minHeight: 90, textAlignVertical: 'top' },
+  bioCounter: { alignItems: 'flex-end', marginTop: 4 },
+  bioCounterText: { fontSize: 10, color: colors.muted },
+
   saveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: colors.purple,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md + 2,
     borderRadius: radii.md,
     marginTop: spacing.lg,
+    ...shadows.card,
   },
   saveBtnText: { color: '#fff', fontWeight: '800', fontSize: font.md },
-  section: {
-    fontSize: font.lg,
-    fontWeight: '800',
-    color: colors.ink,
-    marginBottom: spacing.md,
+
+  removeAvatarBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
   },
-  row: {
+  removeAvatarText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
+
+  /* Info Rows */
+  infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm + 2,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#eeeaf5',
   },
-  rowLabel: { color: colors.muted, fontSize: font.base },
-  rowValue: { color: colors.ink, fontWeight: '700', fontSize: font.base },
+  infoRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  infoRowLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  infoRowValue: {
+    color: colors.ink,
+    fontWeight: '700',
+    fontSize: 13,
+    maxWidth: '55%',
+    textAlign: 'right',
+  },
+
+  /* Logout */
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.danger,
     borderRadius: radii.md,
     paddingVertical: spacing.md,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.sm,
   },
   logoutBtnText: { color: colors.danger, fontWeight: '800', fontSize: font.md },
+
+  version: {
+    textAlign: 'center',
+    color: colors.muted,
+    fontSize: 11,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
 });
