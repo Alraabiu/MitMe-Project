@@ -6,17 +6,21 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { MessageNotificationsProvider } from '../src/context/MessageNotificationsContext';
 import { useAppReady } from '../src/hooks/useAppReady';
 
-// ─── WebRTC globals (dev build / APK only) ──────────────
-// Expo Go does NOT include the WebRTC native module.
+// ─── WebRTC / LiveKit native bootstrap ──────────────────
+// Must run BEFORE any LiveKit code. Expo Go doesn't include the
+// native modules, so we skip it there.
 const isExpoGo = Constants.appOwnership === 'expo';
 
 if (!isExpoGo) {
   try {
+    // registerGlobals lives in @livekit/react-native (NOT the webrtc fork).
+    // It installs RTCPeerConnection, MediaStream, etc. into the JS runtime.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const webrtc = require('@livekit/react-native-webrtc');
-    webrtc.registerGlobals?.();
+    const lk = require('@livekit/react-native');
+    lk.registerGlobals?.();
+    console.log('[MitMe] LiveKit globals registered ✅');
   } catch (err) {
-    console.warn('[MitMe] WebRTC native module unavailable:', err);
+    console.error('[MitMe] Failed to register LiveKit globals:', err);
   }
 }
 
