@@ -14,7 +14,6 @@ import {
 } from '../controllers/classes.js';
 import { validate } from '../middleware/validate.js';
 import { requireAuth } from '../middleware/auth.js';
-import { requireRole } from '../middleware/roles.js';
 
 const r = Router();
 
@@ -31,35 +30,34 @@ const joinBody = z.object({
   code: z.string().min(6).max(10),
 });
 
+/* ─── Class CRUD ───────────────────────────────── */
+
+// Create a class — anyone authenticated can
+r.post('/', validate(createBody), createClass);
+
+// List classes for the current user
 r.get('/', listClasses);
 
-r.post('/', requireRole(['teacher', 'admin']), validate(createBody), createClass);
+// Join a class by code — anyone authenticated
+r.post('/join', validate(joinBody), joinClass);
 
-r.post('/join', requireRole(['student']), validate(joinBody), joinClass);
-
+// Class detail
 r.get('/:id', getClass);
 
-r.post('/:id/leave', requireRole(['student']), leaveClass);
+// Leave a class
+r.post('/:id/leave', leaveClass);
 
-/* ─── Live class sessions ─── */
+/* ─── Live class sessions ──────────────────────── */
+
 r.get('/:id/meeting', getActiveClassMeeting);
-r.post(
-  '/:id/meeting',
-  requireRole(['teacher', 'admin']),
-  startClassMeeting
-);
-r.post(
-  '/:id/meeting/end',
-  requireRole(['teacher', 'admin']),
-  endClassMeeting
-);
+r.post('/:id/meeting', startClassMeeting);
+r.post('/:id/meeting/end', endClassMeeting);
 
-r.delete(
-  '/:id/students/:studentId',
-  requireRole(['teacher', 'admin']),
-  removeStudent
-);
+/* ─── Student management ───────────────────────── */
 
-r.delete('/:id', requireRole(['teacher', 'admin']), archiveClass);
+r.delete('/:id/students/:studentId', removeStudent);
+
+// Archive class
+r.delete('/:id', archiveClass);
 
 export default r;
