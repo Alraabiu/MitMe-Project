@@ -1,198 +1,122 @@
 ﻿import { Redirect, Tabs } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
 import type { ColorValue } from 'react-native';
+import { Platform } from 'react-native';
 import {
   Home,
   MessageCircle,
-  GraduationCap,
   Users,
   Video,
   User as UserIcon,
+  GraduationCap,
 } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/context/AuthContext';
 import { useMessageNotifications } from '../../src/context/MessageNotificationsContext';
-import { colors, font, weights, shadows } from '../../src/theme';
+import { colors } from '../../src/theme';
 
-type IconProps = { color: ColorValue; size: number; focused: boolean };
+type IconProps = { color: ColorValue; size: number };
 
-const makeIcon =
-  (
-    Icon: React.ComponentType<{
-      size?: number;
-      color?: ColorValue;
-      strokeWidth?: number;
-    }>
-  ) =>
-  ({ color, size, focused }: IconProps) => (
-    <Icon size={size} color={color} strokeWidth={focused ? 2.6 : 1.9} />
-  );
-
-const HomeIcon = makeIcon(Home);
-const MessagesIcon = makeIcon(MessageCircle);
-const ClassesIcon = makeIcon(GraduationCap);
-const ContactsIcon = makeIcon(Users);
-const MeetingsIcon = makeIcon(Video);
-const ProfileIcon = makeIcon(UserIcon);
-
-function TabIcon({
-  Icon,
-  color,
-  focused,
-  badge,
-}: {
-  Icon: React.ComponentType<IconProps>;
-  color: ColorValue;
-  focused: boolean;
-  badge?: number;
-}) {
-  return (
-    <View style={navStyles.iconWrap}>
-      {focused && <View style={navStyles.activeGlow} />}
-      <Icon color={color} size={22} focused={focused} />
-      {badge && badge > 0 ? (
-        <View style={navStyles.badge}>
-          <Text style={navStyles.badgeText}>
-            {badge > 9 ? '9+' : String(badge)}
-          </Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
+const IconHome = Home as unknown as React.ComponentType<IconProps>;
+const IconMessages = MessageCircle as unknown as React.ComponentType<IconProps>;
+const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconContacts = Users as unknown as React.ComponentType<IconProps>;
+const IconMeetings = Video as unknown as React.ComponentType<IconProps>;
+const IconProfile = UserIcon as unknown as React.ComponentType<IconProps>;
 
 export default function TabsLayout() {
   const { user } = useAuth();
   const { totalUnread } = useMessageNotifications();
+  const insets = useSafeAreaInsets();
 
   if (!user) return <Redirect href="/(auth)/login" />;
+
+  // Base tab bar height + Android's bottom nav bar
+  const BASE_TAB_BAR = 62;
+  const bottomInset = insets.bottom;
+  const tabBarHeight = BASE_TAB_BAR + bottomInset;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.purple,
-        tabBarInactiveTintColor: colors.mutedDim,
-        tabBarStyle: navStyles.tabBar,
-        tabBarLabelStyle: navStyles.tabLabel,
-        tabBarItemStyle: navStyles.tabItem,
-        tabBarHideOnKeyboard: true,
-        sceneStyle: { backgroundColor: colors.bg },
+        tabBarInactiveTintColor: '#8A8AA0',
+        tabBarBadgeStyle: {
+          backgroundColor: colors.danger,
+          color: '#fff',
+          fontSize: 10,
+          fontWeight: '800',
+        },
+        tabBarStyle: {
+          backgroundColor: '#000000',
+          borderTopColor: '#ECEAF2',
+          borderTopWidth: 1,
+          height: tabBarHeight,
+          paddingTop: 8,
+          paddingBottom: bottomInset + 10,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.06,
+          shadowRadius: 8,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: '700',
+          marginTop: 2,
+          marginBottom: 0,
+        },
+        tabBarItemStyle: {
+          paddingVertical: 0,
+        },
+        tabBarIconStyle: {
+          marginTop: 0,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon Icon={HomeIcon} color={color} focused={focused} />
-          ),
+          tabBarIcon: ({ color }) => <IconHome color={color} size={22} />,
         }}
       />
       <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon
-              Icon={MessagesIcon}
-              color={color}
-              focused={focused}
-              badge={totalUnread}
-            />
-          ),
+          tabBarBadge: totalUnread > 0 ? totalUnread : undefined,
+          tabBarIcon: ({ color }) => <IconMessages color={color} size={22} />,
         }}
       />
       <Tabs.Screen
         name="classes"
         options={{
           title: 'Classes',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon Icon={ClassesIcon} color={color} focused={focused} />
-          ),
+          tabBarIcon: ({ color }) => <IconClasses color={color} size={22} />,
         }}
       />
       <Tabs.Screen
         name="contacts"
         options={{
           title: 'Contacts',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon Icon={ContactsIcon} color={color} focused={focused} />
-          ),
+          tabBarIcon: ({ color }) => <IconContacts color={color} size={22} />,
         }}
       />
       <Tabs.Screen
         name="meetings"
         options={{
           title: 'Meetings',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon Icon={MeetingsIcon} color={color} focused={focused} />
-          ),
+          tabBarIcon: ({ color }) => <IconMeetings color={color} size={22} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon Icon={ProfileIcon} color={color} focused={focused} />
-          ),
+          tabBarIcon: ({ color }) => <IconProfile color={color} size={22} />,
         }}
       />
     </Tabs>
   );
 }
-
-const navStyles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: colors.bgElevated,
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-    height: 78,
-    paddingTop: 10,
-    paddingBottom: 12,
-    paddingHorizontal: 6,
-    ...shadows.nav,
-  },
-  tabItem: {
-    paddingVertical: 2,
-    gap: 4,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: weights.bold,
-    letterSpacing: 0.3,
-    marginTop: 2,
-  },
-  iconWrap: {
-    width: 48,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  activeGlow: {
-    position: 'absolute',
-    inset: 0,
-    borderRadius: 12,
-    backgroundColor: colors.purpleSoft,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: 2,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: colors.bgElevated,
-  },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: weights.extrabold,
-  },
-});

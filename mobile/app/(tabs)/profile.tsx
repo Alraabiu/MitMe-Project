@@ -117,9 +117,7 @@ export default function ProfileTab() {
   };
 
   const initial = user.displayName.charAt(0).toUpperCase();
-  const presence = user.presence || 'offline';
-  const presenceColor =
-    presence === 'online' ? '#168A55' : presence === 'away' ? '#F5A623' : '#999';
+
   const accountStatus = (user.status || 'active').toLowerCase();
   const isActive = accountStatus === 'active';
 
@@ -162,15 +160,6 @@ export default function ProfileTab() {
             </Text>
             <Text style={s.heroHandle}>@{user.username}</Text>
 
-            {/* Presence badge only — no role */}
-            <View style={s.heroBadges}>
-              <View style={s.heroBadge}>
-                <Circle size={10} color={presenceColor} fill={presenceColor} />
-                <Text style={s.heroBadgeText}>
-                  {presence.charAt(0).toUpperCase() + presence.slice(1)}
-                </Text>
-              </View>
-            </View>
           </View>
 
           {/* ═══ Stats Row ══════════════════════════════ */}
@@ -180,13 +169,6 @@ export default function ProfileTab() {
                 {isActive ? 'Active' : 'Suspended'}
               </Text>
               <Text style={s.statLabel}>Account</Text>
-            </View>
-            <View style={s.statDivider} />
-            <View style={s.statItem}>
-              <Text style={s.statValue}>
-                {user.presence ? user.presence[0].toUpperCase() : 'O'}
-              </Text>
-              <Text style={s.statLabel}>Status</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statItem}>
@@ -294,13 +276,6 @@ export default function ProfileTab() {
               label="Account"
               value={isActive ? 'Active' : 'Suspended'}
             />
-            <InfoRow
-              icon={
-                <Circle size={16} color={presenceColor} fill={presenceColor} />
-              }
-              label="Presence"
-              value={presence.charAt(0).toUpperCase() + presence.slice(1)}
-            />
           </View>
 
           {/* ═══ Danger Zone ═══════════════════════════ */}
@@ -351,7 +326,6 @@ const s = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   content: { paddingBottom: 120 },
 
-  /* Hero */
   hero: {
     alignItems: 'center',
     paddingTop: spacing.lg,
@@ -435,7 +409,6 @@ const s = StyleSheet.create({
   },
   heroBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 
-  /* Stats */
   statsRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -462,7 +435,6 @@ const s = StyleSheet.create({
     marginVertical: 6,
   },
 
-  /* Card */
   card: {
     backgroundColor: colors.card,
     borderWidth: 1,
@@ -489,7 +461,6 @@ const s = StyleSheet.create({
   },
   cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
 
-  /* Form */
   label: {
     fontSize: font.sm,
     fontWeight: '700',
@@ -530,7 +501,6 @@ const s = StyleSheet.create({
   },
   removeAvatarText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
 
-  /* Info Rows */
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -549,7 +519,6 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
 
-  /* Logout */
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',
