@@ -34,14 +34,15 @@ import {
   weights,
   shadows,
 } from '../../src/theme';
-import type { AuthResponse } from '../../src/types';
-
-type Role = 'student' | 'teacher';
+import type { AuthResponse, User as UserType } from '../../src/types';
+import { GoogleButton } from '../../src/components/GoogleSignInButton';
+import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { login } = useAuth();
-  const [role, setRole] = useState<Role>('student');
+  const { signInWithGoogle, googleLoading } = useGoogleAuth();
+
   const [form, setForm] = useState({
     displayName: '',
     username: '',
@@ -55,6 +56,37 @@ export default function RegisterScreen() {
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  /**
+   * Tolerant parser — accepts both common backend response shapes:
+   *   A) { accessToken, refreshToken, user }
+   *   B) { success: true, data: { accessToken, refreshToken, user } }
+   * Returns { access, refresh, user } or null.
+   */
+  const extractAuth = (
+    payload: any
+  ): { access: string; refresh: string | null; user: UserType } | null => {
+    if (!payload) return null;
+
+    const root = payload?.data ?? payload;
+
+    const access =
+      root?.accessToken ||
+      root?.token ||
+      root?.access_token ||
+      null;
+
+    const refresh =
+      root?.refreshToken ||
+      root?.refresh_token ||
+      null;
+
+    const user: UserType | undefined = root?.user || payload?.user;
+
+    if (!access || !user) return null;
+
+    return { access, refresh, user };
+  };
+
   const submit = async () => {
     if (!form.displayName.trim() || !form.username.trim() || !form.password) {
       return Alert.alert(
@@ -65,36 +97,62 @@ export default function RegisterScreen() {
     if (form.password.length < 8) {
       return Alert.alert('MitMe', 'Password must be at least 8 characters.');
     }
+
     setBusy(true);
     try {
       const body: Record<string, string> = {
         displayName: form.displayName.trim(),
         username: form.username.trim(),
         password: form.password,
-        role,
+        // No role sent — backend defaults to 'student'
       };
       if (form.email.trim()) body.email = form.email.trim();
       if (form.phone.trim()) body.phone = form.phone.trim();
 
       const r = await api.post<AuthResponse>('/auth/register', body);
-      if (!r.data.user) {
-        throw new Error('Registration response did not include a user.');
+
+      const auth = extractAuth(r?.data);
+
+      if (!auth) {
+        console.log('[REGISTER] Unexpected response shape:', r?.data);
+        throw new Error(
+          'Unexpected response from server. Check API response shape.'
+        );
       }
-      await login(r.data.accessToken!, r.data.refreshToken!, r.data.user);
+
+      await login(auth.access, auth.refresh ?? '', auth.user);
       router.replace('/(tabs)');
     } catch (e: any) {
+      console.log('[REGISTER ERROR]', {
+        status: e?.response?.status,
+        data: e?.response?.data,
+        message: e?.message,
+      });
+
       const issues = e?.response?.data?.issues;
       const detail = issues?.length
         ? ' — ' + issues.map((i: any) => i.message).join(', ')
         : '';
-      Alert.alert(
-        'MitMe',
-        (e?.response?.data?.message || 'Unable to register') + detail
-      );
+
+      let msg = 'Unable to register.';
+
+      if (e?.response?.data?.message) {
+        msg = e.response.data.message + detail;
+      } else if (e?.response?.status) {
+        msg = `Server error (${e.response.status}). Please try again.`;
+      } else if (e?.request) {
+        msg = 'Cannot reach server. Check your internet connection.';
+      } else if (e?.message) {
+        msg = e.message;
+      }
+
+      Alert.alert('MitMe', msg);
     } finally {
       setBusy(false);
     }
   };
+
+  const disabled = busy || googleLoading;
 
   return (
     <SafeAreaView style={s.safe}>
@@ -107,6 +165,7 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {/* Brand */}
           <View style={s.brandRow}>
             <LinearGradient
               colors={gradients.brand}
@@ -122,35 +181,7 @@ export default function RegisterScreen() {
           <Text style={s.h1}>Create your account</Text>
           <Text style={s.sub}>A few details and you're in.</Text>
 
-          {/* Role selector */}
-          <Text style={s.sectionLabel}>I am joining as</Text>
-          <View style={s.roleRow}>
-            <Pressable
-              style={[s.roleCard, role === 'student' && s.roleCardActive]}
-              onPress={() => setRole('student')}
-            >
-              <Text
-                style={[s.roleTitle, role === 'student' && s.roleTitleActive]}
-              >
-                Student
-              </Text>
-              <Text style={s.roleSub}>Join classes</Text>
-            </Pressable>
-
-            <Pressable
-              style={[s.roleCard, role === 'teacher' && s.roleCardActive]}
-              onPress={() => setRole('teacher')}
-            >
-              <Text
-                style={[s.roleTitle, role === 'teacher' && s.roleTitleActive]}
-              >
-                Teacher
-              </Text>
-              <Text style={s.roleSub}>Create classes</Text>
-            </Pressable>
-          </View>
-
-          {/* Inputs */}
+          {/* Full name */}
           <View style={s.inputWrap}>
             <User size={18} color={colors.mutedLight} />
             <TextInput
@@ -160,9 +191,11 @@ export default function RegisterScreen() {
               value={form.displayName}
               onChangeText={set('displayName')}
               autoCapitalize="words"
+              editable={!disabled}
             />
           </View>
 
+          {/* Username */}
           <View style={s.inputWrap}>
             <AtSign size={18} color={colors.mutedLight} />
             <TextInput
@@ -173,9 +206,11 @@ export default function RegisterScreen() {
               onChangeText={set('username')}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!disabled}
             />
           </View>
 
+          {/* Email */}
           <View style={s.inputWrap}>
             <Mail size={18} color={colors.mutedLight} />
             <TextInput
@@ -187,9 +222,11 @@ export default function RegisterScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!disabled}
             />
           </View>
 
+          {/* Phone */}
           <View style={s.inputWrap}>
             <Phone size={18} color={colors.mutedLight} />
             <TextInput
@@ -199,9 +236,11 @@ export default function RegisterScreen() {
               value={form.phone}
               onChangeText={set('phone')}
               keyboardType="phone-pad"
+              editable={!disabled}
             />
           </View>
 
+          {/* Password with eye toggle */}
           <View style={s.inputWrap}>
             <Lock size={18} color={colors.mutedLight} />
             <TextInput
@@ -213,11 +252,13 @@ export default function RegisterScreen() {
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!disabled}
             />
             <Pressable
               style={s.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
               hitSlop={10}
+              disabled={disabled}
             >
               {showPassword ? (
                 <Eye size={20} color={colors.purpleLight} />
@@ -227,13 +268,15 @@ export default function RegisterScreen() {
             </Pressable>
           </View>
 
+          {/* Submit */}
           <Pressable
             style={({ pressed }) => [
               s.btnWrap,
               pressed && { opacity: 0.92 },
+              disabled && { opacity: 0.7 },
             ]}
             onPress={submit}
-            disabled={busy}
+            disabled={disabled}
           >
             <LinearGradient
               colors={gradients.brand}
@@ -249,14 +292,33 @@ export default function RegisterScreen() {
             </LinearGradient>
           </Pressable>
 
+          {/* Google Sign-In — parity with login */}
+          <View style={s.dividerRow}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>or continue with</Text>
+            <View style={s.dividerLine} />
+          </View>
+
+          <GoogleButton
+            onPress={signInWithGoogle}
+            loading={googleLoading}
+            disabled={busy}
+          />
+
+          {/* Switch */}
           <View style={s.switchRow}>
             <Text style={s.switchText}>Already have an account?</Text>
             <Link href="/(auth)/login" asChild>
-              <Pressable hitSlop={8}>
+              <Pressable hitSlop={8} disabled={disabled}>
                 <Text style={s.switchLink}>Sign in</Text>
               </Pressable>
             </Link>
           </View>
+
+          {/* Footnote */}
+          <Text style={s.footnote}>
+            You'll be able to create and join classes from your dashboard.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -306,44 +368,6 @@ const s = StyleSheet.create({
     fontSize: font.md,
   },
 
-  sectionLabel: {
-    fontSize: 11,
-    fontWeight: weights.bold,
-    color: colors.mutedDim,
-    marginBottom: spacing.sm,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  roleRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginBottom: spacing.xl,
-  },
-  roleCard: {
-    flex: 1,
-    padding: spacing.lg,
-    borderRadius: radii.lg,
-    borderWidth: 1.5,
-    borderColor: colors.surfaceBorder,
-    backgroundColor: colors.surface,
-  },
-  roleCardActive: {
-    borderColor: colors.purple,
-    backgroundColor: colors.purpleSoft,
-  },
-  roleTitle: {
-    fontSize: font.lg,
-    fontWeight: weights.extrabold,
-    color: colors.ink,
-    letterSpacing: -0.2,
-  },
-  roleTitleActive: { color: colors.purpleLight },
-  roleSub: {
-    fontSize: font.sm,
-    color: colors.muted,
-    marginTop: 4,
-  },
-
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -388,6 +412,23 @@ const s = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    marginBottom: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceBorder,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: colors.muted,
+    fontSize: font.sm,
+  },
+
   switchRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -400,5 +441,14 @@ const s = StyleSheet.create({
     color: colors.purpleLight,
     fontWeight: weights.extrabold,
     fontSize: font.base,
+  },
+
+  footnote: {
+    color: colors.mutedDim,
+    fontSize: font.sm,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    lineHeight: 18,
+    paddingHorizontal: spacing.lg,
   },
 });
