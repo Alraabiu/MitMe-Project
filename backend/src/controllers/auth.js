@@ -73,9 +73,7 @@ const generateUniqueUsername = async (email, name) => {
 
 // ─── POST /api/auth/register ─────────────────────────────────
 export const register = asyncHandler(async (req, res) => {
-  const { displayName, username, email, phone, password, role } = req.body;
-  const allowedRoles = ['student', 'teacher'];
-  const safeRole = allowedRoles.includes(role) ? role : 'student';
+  const { displayName, username, email, phone, password } = req.body;
 
   if (!email && !phone) {
     return res.status(400).json({ message: 'Email or phone is required' });
@@ -100,7 +98,7 @@ export const register = asyncHandler(async (req, res) => {
       email,
       phone,
       passwordHash,
-      role: safeRole,
+      // No role sent — model default is 'member'
       authProvider: 'local',
     });
     return res.status(201).json(await issue(user, req));
@@ -198,7 +196,7 @@ export const googleAuth = asyncHandler(async (req, res) => {
       if (!user.avatarUrl && picture) user.avatarUrl = picture;
       await user.save();
     } else {
-      // Create a new user
+      // Create a new user (default role applies: 'member')
       const username = await generateUniqueUsername(normalizedEmail, name);
       user = await User.create({
         displayName: name || username,

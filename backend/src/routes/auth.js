@@ -35,7 +35,7 @@ const reg = z.object({
   email: z.string().email().optional(),
   phone: z.string().min(7).optional(),
   password: z.string().min(8),
-  role: z.enum(['student', 'teacher']).optional(),
+  // No role field — new users always default to 'member'
 });
 
 // Accept either `credential` (Google frontend) or `idToken` (mobile)

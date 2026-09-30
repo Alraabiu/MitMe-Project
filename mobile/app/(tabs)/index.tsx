@@ -165,6 +165,7 @@ export default function HomeTab() {
   const firstName = user.displayName.split(' ')[0];
   const visible = meetings.slice(0, 5);
   const isOnline = user.presence === 'online' || !user.presence;
+  const liveCount = meetings.filter((m) => m.status === 'live').length;
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -290,14 +291,12 @@ export default function HomeTab() {
             <Text style={s.statChipLabel}>Meetings</Text>
           </View>
           <View style={s.statChip}>
-            <IconUsers color={colors.blueLight} size={14} />
-            <Text style={s.statChipValue}>
-              {user.role === 'teacher' ? 'Teacher' : 'Student'}
-            </Text>
-            <Text style={s.statChipLabel}>Role</Text>
+            <IconZap color={colors.blueLight} size={14} />
+            <Text style={s.statChipValue}>{liveCount}</Text>
+            <Text style={s.statChipLabel}>Live</Text>
           </View>
           <View style={s.statChip}>
-            <IconZap color={colors.success} size={14} />
+            <IconUsers color={colors.success} size={14} />
             <Text style={s.statChipValue}>
               {user.presence ?? 'online'}
             </Text>

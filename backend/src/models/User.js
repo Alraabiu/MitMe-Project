@@ -30,10 +30,12 @@ const schema = new mongoose.Schema(
       default: 'offline',
     },
     lastSeen: Date,
+    // Role field kept for backward compatibility with old accounts,
+    // but the app no longer uses it. Default is 'member' for new users.
     role: {
       type: String,
-      enum: ['student', 'teacher', 'moderator', 'admin'],
-      default: 'student',
+      enum: ['member', 'student', 'teacher', 'moderator', 'admin'],
+      default: 'member',
     },
   },
   { timestamps: true }

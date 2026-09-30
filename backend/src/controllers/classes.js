@@ -8,28 +8,36 @@ import { createMeetingCode } from '../utils/meeting.js';
 
 const toId = (v) => String(v?._id || v || '');
 
-const isTeacher = (user) =>
-  String(user?.role || '').toLowerCase() === 'teacher';
-
 const isAdmin = (user) =>
   String(user?.role || '').toLowerCase() === 'admin';
 
-const isStudent = (user) =>
-  String(user?.role || '').toLowerCase() === 'student';
+/** True if the user created this class (owner). */
+const isOwner = (classDoc, user) => {
+  if (!classDoc || !user) return false;
+  return toId(classDoc.teacher) === toId(user._id);
+};
 
+/** True if the user has joined this class (member of `students`). */
+const isEnrolled = (classDoc, user) => {
+  if (!classDoc || !user) return false;
+  const list = Array.isArray(classDoc.students) ? classDoc.students : [];
+  return list.some((s) => toId(s) === toId(user._id));
+};
+
+/** Owner, enrolled member, or admin — can view the class. */
 const canView = (classDoc, user) => {
   if (!classDoc || !user) return false;
-  if (isTeacher(user) || isAdmin(user)) return true;
-  if (isStudent(user)) {
-    return classDoc.students.some((s) => toId(s) === toId(user._id));
-  }
+  if (isAdmin(user)) return true;
+  if (isOwner(classDoc, user)) return true;
+  if (isEnrolled(classDoc, user)) return true;
   return false;
 };
 
+/** Owner or admin — can manage/start/end/delete the class. */
 const canManage = (classDoc, user) => {
   if (!classDoc || !user) return false;
   if (isAdmin(user)) return true;
-  if (isTeacher(user)) return toId(classDoc.teacher) === toId(user._id);
+  if (isOwner(classDoc, user)) return true;
   return false;
 };
 
@@ -45,11 +53,11 @@ const newMeetingCode = async () => {
    CLASS CRUD
    ========================================================= */
 
+/**
+ * Create a class.
+ * Any authenticated user can create one — they become the owner.
+ */
 export const createClass = asyncHandler(async (req, res) => {
-  if (!isTeacher(req.user) && !isAdmin(req.user)) {
-    return res.status(403).json({ message: 'Only teachers can create classes' });
-  }
-
   const { name, description, subject, coverColor } = req.body;
 
   if (!name || !String(name).trim()) {
@@ -73,17 +81,24 @@ export const createClass = asyncHandler(async (req, res) => {
   return res.status(201).json({ success: true, data: { class: classDoc } });
 });
 
+/**
+ * List classes for the current user.
+ * - Admin sees all.
+ * - Everyone else sees classes they own + classes they've joined.
+ */
 export const listClasses = asyncHandler(async (req, res) => {
-  let query = { isArchived: false };
+  let query;
 
-  if (isTeacher(req.user)) {
-    query = { isArchived: false };
-  } else if (isStudent(req.user)) {
-    query = { isArchived: false, students: req.user._id };
-  } else if (isAdmin(req.user)) {
+  if (isAdmin(req.user)) {
     query = { isArchived: false };
   } else {
-    return res.status(403).json({ message: 'Unknown role' });
+    query = {
+      isArchived: false,
+      $or: [
+        { teacher: req.user._id },
+        { students: req.user._id },
+      ],
+    };
   }
 
   const classes = await Class.find(query)
@@ -91,7 +106,7 @@ export const listClasses = asyncHandler(async (req, res) => {
     .populate('teacher', 'displayName username avatarUrl role')
     .lean();
 
-  // Attach active meeting flag
+  // Attach live meeting flag + isOwner flag
   const classIds = classes.map((c) => c._id);
   const liveMeetings = await Meeting.find({
     classId: { $in: classIds },
@@ -107,11 +122,16 @@ export const listClasses = asyncHandler(async (req, res) => {
     ...c,
     activeMeetingCode: liveMap[String(c._id)] || null,
     isLive: Boolean(liveMap[String(c._id)]),
+    isOwner: toId(c.teacher) === toId(req.user._id),
   }));
 
   return res.json({ success: true, data: { classes: withLive } });
 });
 
+/**
+ * Class detail.
+ * Visible to owner, enrolled members, and admins.
+ */
 export const getClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id)
     .populate('teacher', 'displayName username avatarUrl role')
@@ -128,11 +148,11 @@ export const getClass = asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { class: classDoc } });
 });
 
+/**
+ * Join a class by code.
+ * Any authenticated user can join — except the owner.
+ */
 export const joinClass = asyncHandler(async (req, res) => {
-  if (!isStudent(req.user)) {
-    return res.status(403).json({ message: 'Only students can join classes' });
-  }
-
   const rawCode = String(req.body?.code || '').trim().toUpperCase();
   if (!rawCode) {
     return res.status(400).json({ message: 'Class code is required' });
@@ -151,7 +171,11 @@ export const joinClass = asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Invalid class code' });
   }
 
-  if (classDoc.students.some((s) => toId(s) === toId(req.user._id))) {
+  if (isOwner(classDoc, req.user)) {
+    return res.status(400).json({ message: 'You own this class' });
+  }
+
+  if (isEnrolled(classDoc, req.user)) {
     return res.status(409).json({ message: 'You are already in this class' });
   }
 
@@ -166,13 +190,23 @@ export const joinClass = asyncHandler(async (req, res) => {
   });
 });
 
+/**
+ * Leave a class.
+ * The owner cannot leave their own class — they archive it instead.
+ */
 export const leaveClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
     return res.status(404).json({ message: 'Class not found' });
   }
 
-  const wasIn = classDoc.students.some((s) => toId(s) === toId(req.user._id));
+  if (isOwner(classDoc, req.user)) {
+    return res.status(400).json({
+      message: 'You own this class. Archive it instead of leaving.',
+    });
+  }
+
+  const wasIn = isEnrolled(classDoc, req.user);
   if (!wasIn) {
     return res.status(400).json({ message: 'You are not in this class' });
   }
@@ -185,13 +219,16 @@ export const leaveClass = asyncHandler(async (req, res) => {
   return res.json({ success: true, message: 'Left class' });
 });
 
+/**
+ * Remove a member from a class (owner or admin only).
+ */
 export const removeStudent = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
     return res.status(404).json({ message: 'Class not found' });
   }
   if (!canManage(classDoc, req.user)) {
-    return res.status(403).json({ message: 'Only the class teacher can remove students' });
+    return res.status(403).json({ message: 'Only the class owner can remove members' });
   }
 
   const targetId = req.params.studentId;
@@ -199,20 +236,23 @@ export const removeStudent = asyncHandler(async (req, res) => {
   classDoc.students = classDoc.students.filter((s) => toId(s) !== toId(targetId));
 
   if (classDoc.students.length === before) {
-    return res.status(404).json({ message: 'Student not found in this class' });
+    return res.status(404).json({ message: 'Member not found in this class' });
   }
 
   await classDoc.save();
-  return res.json({ success: true, message: 'Student removed' });
+  return res.json({ success: true, message: 'Member removed' });
 });
 
+/**
+ * Archive a class (owner or admin only).
+ */
 export const archiveClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
     return res.status(404).json({ message: 'Class not found' });
   }
   if (!canManage(classDoc, req.user)) {
-    return res.status(403).json({ message: 'You cannot delete this class' });
+    return res.status(403).json({ message: 'You cannot archive this class' });
   }
 
   classDoc.isArchived = true;
@@ -226,6 +266,9 @@ export const archiveClass = asyncHandler(async (req, res) => {
    LIVE CLASS SESSIONS
    ========================================================= */
 
+/**
+ * Start a live session for the class (owner or admin only).
+ */
 export const startClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
@@ -233,7 +276,7 @@ export const startClassMeeting = asyncHandler(async (req, res) => {
   }
   if (!canManage(classDoc, req.user)) {
     return res.status(403).json({
-      message: 'Only the class teacher can start a live session',
+      message: 'Only the class owner can start a live session',
     });
   }
 
@@ -277,6 +320,9 @@ export const startClassMeeting = asyncHandler(async (req, res) => {
   return res.status(201).json({ success: true, data: { meeting } });
 });
 
+/**
+ * Get the active live meeting for a class.
+ */
 export const getActiveClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
@@ -296,13 +342,16 @@ export const getActiveClassMeeting = asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { meeting: meeting || null } });
 });
 
+/**
+ * End the live session (owner or admin only).
+ */
 export const endClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
   if (!classDoc) {
     return res.status(404).json({ message: 'Class not found' });
   }
   if (!canManage(classDoc, req.user)) {
-    return res.status(403).json({ message: 'Only the teacher can end the session' });
+    return res.status(403).json({ message: 'Only the class owner can end the session' });
   }
 
   await Meeting.updateMany(
