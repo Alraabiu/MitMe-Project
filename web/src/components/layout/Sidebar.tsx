@@ -1,4 +1,4 @@
-﻿import {
+import {
   Bell,
   BellOff,
   CalendarDays,
@@ -11,6 +11,7 @@
   Users,
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
+import { Avatar } from '../common/Avatar';
 import type { User } from '../../types';
 
 export type NavId =
@@ -30,9 +31,14 @@ interface SidebarProps {
   unreadMessages?: number;
   muted?: boolean;
   onToggleMuted?: () => void;
+  isOnline?: boolean;
 }
 
-const NAV: { id: NavId; label: string; Icon: React.ComponentType<{ size?: number }> }[] = [
+const NAV: {
+  id: NavId;
+  label: string;
+  Icon: React.ComponentType<{ size?: number }>;
+}[] = [
   { id: 'home', label: 'Dashboard', Icon: LayoutDashboard },
   { id: 'messages', label: 'Messages', Icon: MessageCircle },
   { id: 'classes', label: 'Classes', Icon: GraduationCap },
@@ -49,10 +55,38 @@ export function Sidebar({
   unreadMessages = 0,
   muted = false,
   onToggleMuted,
+  isOnline = true,
 }: SidebarProps) {
+  const isAdmin = String(user.role || '').toLowerCase() === 'admin';
+
   return (
     <aside className="sidebar">
       <Logo variant="mark" />
+
+      {/* User card with live status */}
+      <div className="sidebar-user-card">
+        <div className="sidebar-user-row">
+          <Avatar name={user.displayName} src={user.avatarUrl} size={40} />
+          <div className="sidebar-user-meta">
+            <div className="sidebar-user-name" title={user.displayName}>
+              {user.displayName}
+            </div>
+            <div className="sidebar-user-handle" title={`@${user.username}`}>
+              @{user.username}
+            </div>
+          </div>
+        </div>
+
+        <div className="sidebar-status">
+          <span
+            className={`sidebar-status-dot ${isOnline ? 'online' : 'offline'}`}
+            aria-hidden
+          />
+          <span className="sidebar-status-text">
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
+        </div>
+      </div>
 
       <nav className="nav">
         {NAV.map(({ id, label, Icon }) => (
@@ -74,7 +108,7 @@ export function Sidebar({
           </button>
         ))}
 
-        {user.role === 'admin' && (
+        {isAdmin && (
           <button
             className={page === 'admin' ? 'active' : ''}
             onClick={() => onNavigate('admin')}

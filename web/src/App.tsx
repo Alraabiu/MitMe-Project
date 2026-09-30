@@ -4,11 +4,15 @@ import { api, getToken, setToken } from './services/api';
 import { AuthPage } from './components/auth/AuthPage';
 import { Shell } from './components/layout/Shell';
 import { Logo } from './components/common/Logo';
+import { usePresence } from './hooks/usePresence';
 import type { User } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Track presence whenever a user is logged in
+  const isOnline = usePresence(Boolean(user));
 
   useEffect(() => {
     const token = getToken();
@@ -33,5 +37,5 @@ export default function App() {
 
   if (!user) return <AuthPage onLogin={setUser} />;
 
-  return <Shell user={user} setUser={setUser} />;
+  return <Shell user={user} setUser={setUser} isOnline={isOnline} />;
 }

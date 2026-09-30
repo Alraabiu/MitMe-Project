@@ -3,6 +3,7 @@ import { Camera, LogOut, User as UserIcon } from 'lucide-react';
 import { api, setToken } from '../../services/api';
 import { disconnectSocket } from '../../services/socket';
 import type { User } from '../../types';
+import { ThemeSwitcher } from './ThemeSwitcher';
 
 interface SettingsPageProps {
   user: User;
@@ -95,6 +96,7 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
   };
 
   const initial = (user.displayName || '?').slice(0, 1).toUpperCase();
+  const isActive = (user.status || 'active').toLowerCase() === 'active';
 
   return (
     <div className="page">
@@ -206,10 +208,13 @@ export function SettingsPage({ user, setUser }: SettingsPageProps) {
         )}
 
         <div className="row">
-          <span className="muted">Role</span>
-          <span className="pill">{user.role || 'student'}</span>
+          <span className="muted">Account</span>
+          <span className="pill">{isActive ? 'Active' : 'Suspended'}</span>
         </div>
       </div>
+
+      {/* ─── Appearance (Light / Dark / System) ──────── */}
+      <ThemeSwitcher />
 
       {/* ─── Sign Out Card ───────────────────────────── */}
       <div className="card form" style={{ marginTop: 18 }}>

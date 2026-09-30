@@ -8,7 +8,7 @@
   bio?: string;
   presence?: 'online' | 'away' | 'dnd' | 'offline';
   status?: 'active' | 'suspended';
-  role?: 'student' | 'teacher' | 'moderator' | 'admin';
+  role?: string;
   lastSeen?: string;
 }
 
@@ -104,6 +104,7 @@ export interface ClassItem {
   coverColor?: string;
   isArchived?: boolean;
   isLive?: boolean;
+  isOwner?: boolean;
   activeMeetingCode?: string | null;
   createdAt?: string;
   updatedAt?: string;

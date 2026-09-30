@@ -27,8 +27,6 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
-  const role = String(user?.role || 'student').toLowerCase();
-  const isStudent = role === 'student';
   const isOwner =
     cls && user && String(cls.teacher?._id) === String(user._id);
 
@@ -119,7 +117,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   };
 
   const handleEndLive = async () => {
-    if (!window.confirm('End the live session? Students will be disconnected.')) return;
+    if (!window.confirm('End the live session? Everyone will be disconnected.')) return;
     try {
       await endClassMeeting(classId);
       setMeeting(null);
@@ -141,7 +139,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
   };
 
   const handleArchive = async () => {
-    if (!window.confirm('Archive this class? Students will no longer see it.')) return;
+    if (!window.confirm('Archive this class? Members will no longer see it.')) return;
     try {
       await archiveClass(classId);
       onBack();
@@ -150,27 +148,30 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
     }
   };
 
-  const handleRemoveStudent = async (stu: ClassStudent | string) => {
+  const handleRemoveMember = async (stu: ClassStudent | string) => {
     const sid = typeof stu === 'string' ? stu : stu._id;
     const nm =
-      typeof stu === 'string' ? 'this student' : stu.displayName || stu.username;
+      typeof stu === 'string' ? 'this member' : stu.displayName || stu.username;
     if (!window.confirm(`Remove ${nm} from this class?`)) return;
     try {
       await removeStudent(classId, sid);
       await load();
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Unable to remove student.');
+      alert(err?.response?.data?.message || 'Unable to remove member.');
     }
   };
 
   if (loading) return <div className="classesLoading">Loading class...</div>;
   if (!cls) return <div className="classesLoading">Class not found.</div>;
 
-  const students: (ClassStudent | string)[] = Array.isArray(cls.students)
+  const members: (ClassStudent | string)[] = Array.isArray(cls.students)
     ? cls.students
     : [];
   const isLive = Boolean(meeting);
   const shareLink = buildClassShareLink(cls.code);
+  const isMember = members.some(
+    (m) => String(typeof m === 'string' ? m : m._id) === String(user._id)
+  );
 
   return (
     <div className="classDetailWrap">
@@ -218,7 +219,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
         </div>
       </div>
 
-      {/* Live Teaching (teacher) */}
+      {/* Live Teaching (owner) */}
       {isOwner && (
         <div className="classLiveSection">
           <h3 className="classLiveSectionTitle">Live Teaching</h3>
@@ -248,12 +249,12 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
         </div>
       )}
 
-      {/* Teacher live indicator for students */}
-      {isStudent && isLive && (
+      {/* Live indicator for non-owners */}
+      {!isOwner && isLive && (
         <div className="classLiveSection">
-          <h3 className="classLiveSectionTitle">Teacher is live now</h3>
+          <h3 className="classLiveSectionTitle">Live now</h3>
           <button className="classesBtn" onClick={handleJoinLive} disabled={busy}>
-            Join Live Class with {meeting?.host?.displayName || 'Teacher'}
+            Join Live Class with {meeting?.host?.displayName || 'Host'}
           </button>
         </div>
       )}
@@ -267,31 +268,31 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
       ) : null}
 
       <div className="classDetailCard">
-        <h3 className="classDetailCardTitle">Teacher</h3>
+        <h3 className="classDetailCardTitle">Owner</h3>
         <p className="classDetailCardText">
-          {cls.teacher?.displayName || cls.teacher?.username || 'Teacher'}
+          {cls.teacher?.displayName || cls.teacher?.username || 'Unknown'}
         </p>
       </div>
 
-      {/* Students */}
+      {/* Members */}
       <div className="classDetailCard">
         <div className="classDetailCardHeader">
           <h3 className="classDetailCardTitle" style={{ margin: 0 }}>
-            Students
+            Members
           </h3>
-          <span className="classDetailCount">{students.length}</span>
+          <span className="classDetailCount">{members.length}</span>
         </div>
 
-        {students.length === 0 ? (
+        {members.length === 0 ? (
           <p className="classDetailCardText" style={{ fontStyle: 'italic' }}>
-            No students have joined yet. Share the code or link above.
+            No members have joined yet. Share the code or link above.
           </p>
         ) : (
-          students.map((stu, idx) => {
+          members.map((stu, idx) => {
             const sid = typeof stu === 'string' ? stu : stu._id;
             const name =
               typeof stu === 'string'
-                ? `Student ${idx + 1}`
+                ? `Member ${idx + 1}`
                 : stu.displayName || stu.username;
             const email = typeof stu === 'string' ? '' : stu.email || '';
 
@@ -304,10 +305,10 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
                   <div className="classStudentName">{name}</div>
                   {email ? <div className="classStudentMeta">{email}</div> : null}
                 </div>
-                {isOwner && (
+                {isOwner && sid !== String(user._id) && (
                   <button
                     className="classStudentRemove"
-                    onClick={() => handleRemoveStudent(stu)}
+                    onClick={() => handleRemoveMember(stu)}
                   >
                     Remove
                   </button>
@@ -325,7 +326,7 @@ export function ClassDetail({ classId, user, onBack, onOpenMeeting }: Props) {
             Archive Class
           </button>
         )}
-        {isStudent && (
+        {!isOwner && isMember && (
           <button className="classesBtn classesBtnDanger" onClick={handleLeave}>
             Leave Class
           </button>

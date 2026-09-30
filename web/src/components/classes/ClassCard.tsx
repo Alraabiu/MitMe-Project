@@ -6,7 +6,7 @@ interface Props {
 }
 
 export function ClassCard({ cls, onClick }: Props) {
-  const studentCount = Array.isArray(cls.students) ? cls.students.length : 0;
+  const memberCount = Array.isArray(cls.students) ? cls.students.length : 0;
 
   return (
     <div className="classCard" onClick={() => onClick(cls._id)}>
@@ -30,14 +30,15 @@ export function ClassCard({ cls, onClick }: Props) {
 
         <div className="classCardMeta">
           <div>
-            Code:{' '}
-            <span className="classCardCode">{cls.code}</span>
+            Code: <span className="classCardCode">{cls.code}</span>
           </div>
-          <div>{studentCount} students</div>
+          <div>
+            {memberCount} {memberCount === 1 ? 'member' : 'members'}
+          </div>
         </div>
 
         <div className="classCardTeacher">
-          By {cls.teacher?.displayName || cls.teacher?.username || 'Teacher'}
+          Owner: {cls.teacher?.displayName || cls.teacher?.username || 'Unknown'}
         </div>
       </div>
     </div>

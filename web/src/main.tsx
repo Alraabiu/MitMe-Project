@@ -4,11 +4,15 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import App from './App';
-// The bundler handles this stylesheet import; TypeScript has no declaration for CSS files.
+
+// The bundler handles these stylesheet imports.
 // @ts-ignore
 import '@livekit/components-styles';
 import './styles/theme.css';
 import './styles/classes.css';
+import './styles/theme-extras.css';
+
+import { initTheme } from './services/theme';
 
 /**
  * Google OAuth client ID.
@@ -25,6 +29,9 @@ if (!GOOGLE_CLIENT_ID) {
     '[MitMe] VITE_GOOGLE_CLIENT_ID is not set. Google Sign-In on web will not work until you add it to .env'
   );
 }
+
+// Apply theme (light / dark / system) before first paint
+initTheme();
 
 const root = createRoot(document.getElementById('root')!);
 root.render(

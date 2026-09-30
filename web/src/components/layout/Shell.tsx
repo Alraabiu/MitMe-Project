@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { api, setToken } from '../../services/api';
 import { getSocket, disconnectSocket } from '../../services/socket';
 import { useMessageNotifications } from '../../hooks/useMessageNotifications';
@@ -18,9 +18,10 @@ import { ClassesPage } from '../classes/ClassesPage';
 interface ShellProps {
   user: User;
   setUser: (u: User | null) => void;
+  isOnline?: boolean;
 }
 
-export function Shell({ user, setUser }: ShellProps) {
+export function Shell({ user, setUser, isOnline = true }: ShellProps) {
   const [page, setPage] = useState<NavId>('home');
   const [activeMeeting, setActiveMeeting] = useState<Meeting | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -88,6 +89,7 @@ export function Shell({ user, setUser }: ShellProps) {
         unreadMessages={totalUnread}
         muted={muted}
         onToggleMuted={toggleMuted}
+        isOnline={isOnline}
       />
 
       <main className="main">

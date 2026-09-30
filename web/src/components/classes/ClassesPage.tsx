@@ -23,10 +23,6 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const role = String(user?.role || 'student').toLowerCase();
-  const isTeacher = role === 'teacher' || role === 'admin';
-  const isStudent = role === 'student';
-
   const load = useCallback(async () => {
     try {
       setError(null);
@@ -45,11 +41,11 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('join');
-    if (code && isStudent) {
+    if (code) {
       setView({ type: 'join', code: code.toUpperCase() });
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [isStudent]);
+  }, []);
 
   useEffect(() => {
     if (view.type === 'list') load();
@@ -89,30 +85,25 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
     <div className="classesPage">
       <div className="classesHeader">
         <div>
-          <div className="classesEyebrow">MitMe</div>
           <h1 className="classesTitle">Classes</h1>
           <p className="classesSub">
-            {isTeacher ? 'Manage your classes' : 'Your enrolled classes'}
+            Create your own class or join one with a code
           </p>
         </div>
 
         <div className="classesActions">
-          {isTeacher && (
-            <button
-              className="classesBtn"
-              onClick={() => setView({ type: 'create' })}
-            >
-              + Create Class
-            </button>
-          )}
-          {isStudent && (
-            <button
-              className="classesBtn"
-              onClick={() => setView({ type: 'join' })}
-            >
-              + Join Class
-            </button>
-          )}
+          <button
+            className="classesBtn"
+            onClick={() => setView({ type: 'create' })}
+          >
+            + Create Class
+          </button>
+          <button
+            className="classesBtn classesBtnGhost"
+            onClick={() => setView({ type: 'join' })}
+          >
+            Join with Code
+          </button>
         </div>
       </div>
 
@@ -124,9 +115,7 @@ export function ClassesPage({ user, onOpenMeeting }: Props) {
         <div className="classesEmpty">
           <div className="classesEmptyTitle">No classes yet</div>
           <div className="classesEmptyText">
-            {isTeacher
-              ? 'Create your first class to get started.'
-              : 'Join a class using the code from your teacher.'}
+            Create a class for your group, or join one with a code.
           </div>
         </div>
       ) : (
