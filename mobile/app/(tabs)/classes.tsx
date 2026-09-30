@@ -12,10 +12,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GraduationCap, Plus, Hash } from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import { listClasses } from '../../src/services/classes';
 import { colors, spacing, radii, font, shadows } from '../../src/theme';
 import type { Class } from '../../src/types';
+
+type IconProps = { color?: string; size?: number };
+const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconPlus = Plus as unknown as React.ComponentType<IconProps>;
+const IconHash = Hash as unknown as React.ComponentType<IconProps>;
 
 export default function ClassesScreen() {
   const router = useRouter();
@@ -23,10 +29,6 @@ export default function ClassesScreen() {
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  const role = String(user?.role || 'student').toLowerCase();
-  const isTeacher = role === 'teacher' || role === 'admin';
-  const isStudent = role === 'student';
 
   const load = useCallback(async () => {
     try {
@@ -71,110 +73,129 @@ export default function ClassesScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        showsVerticalScrollIndicator={false}
       >
         <View style={s.header}>
           <View>
             <Text style={s.eyebrow}>MitMe</Text>
             <Text style={s.title}>Classes</Text>
             <Text style={s.sub}>
-              {isTeacher
-                ? 'Manage your classes'
-                : 'Your enrolled classes'}
+              Create your own class or join one with a code
             </Text>
           </View>
         </View>
 
-        {/* Actions */}
+        {/* Actions — both always visible */}
         <View style={s.actionsRow}>
-          {isTeacher && (
-            <Pressable
-              onPress={() => router.push('/classes/create')}
-              style={({ pressed }) => [
-                s.actionBtn,
-                pressed && { opacity: 0.9 },
-              ]}
+          <Pressable
+            onPress={() => router.push('/classes/create')}
+            style={({ pressed }) => [
+              s.actionBtn,
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            <LinearGradient
+              colors={[colors.purple, colors.blue]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={s.actionInner}
             >
-              <LinearGradient
-                colors={[colors.purple, colors.blue]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.actionInner}
-              >
-                <Text style={s.actionText}>+ Create Class</Text>
-              </LinearGradient>
-            </Pressable>
-          )}
+              <IconPlus color="#fff" size={18} />
+              <Text style={s.actionText}>Create Class</Text>
+            </LinearGradient>
+          </Pressable>
 
-          {isStudent && (
-            <Pressable
-              onPress={() => router.push('/classes/join')}
-              style={({ pressed }) => [
-                s.actionBtn,
-                pressed && { opacity: 0.9 },
-              ]}
-            >
-              <LinearGradient
-                colors={[colors.purple, colors.blue]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={s.actionInner}
-              >
-                <Text style={s.actionText}>+ Join Class</Text>
-              </LinearGradient>
-            </Pressable>
-          )}
+          <Pressable
+            onPress={() => router.push('/classes/join')}
+            style={({ pressed }) => [
+              s.actionBtnSecondary,
+              pressed && { opacity: 0.9 },
+            ]}
+          >
+            <IconHash color={colors.purple} size={18} />
+            <Text style={s.actionTextSecondary}>Join with Code</Text>
+          </Pressable>
         </View>
 
-        {/* List */}
-        {classes.length === 0 ? (
-          <View style={s.empty}>
-            <Text style={s.emptyTitle}>No classes yet</Text>
-            <Text style={s.emptyText}>
-              {isTeacher
-                ? 'Create your first class to get started.'
-                : 'Join a class using the code from your teacher.'}
+        {/* Info banner for empty state */}
+        {classes.length === 0 && (
+          <View style={s.tipCard}>
+            <View style={s.tipIcon}>
+              <IconClasses color={colors.purple} size={22} />
+            </View>
+            <Text style={s.tipTitle}>Start an online class</Text>
+            <Text style={s.tipText}>
+              Create a class for your group, school, or study session.
+              Share the code or link with anyone you want to invite.
             </Text>
           </View>
-        ) : (
-          classes.map((cls) => (
-            <Pressable
-              key={cls._id}
-              onPress={() => router.push(`/classes/${cls._id}`)}
-              style={({ pressed }) => [
-                s.card,
-                pressed && { opacity: 0.9 },
-              ]}
-            >
-              <View
-                style={[
-                  s.cardAccent,
-                  { backgroundColor: cls.coverColor || colors.purple },
-                ]}
-              />
-              <View style={s.cardBody}>
-                <Text style={s.cardTitle} numberOfLines={1}>
-                  {cls.name}
-                </Text>
-                {cls.subject ? (
-                  <Text style={s.cardSubject} numberOfLines={1}>
-                    {cls.subject}
-                  </Text>
-                ) : null}
-                <View style={s.cardMeta}>
-                  <Text style={s.cardMetaText}>
-                    Code: <Text style={s.cardCode}>{cls.code}</Text>
-                  </Text>
-                  <Text style={s.cardMetaText}>
-                    {Array.isArray(cls.students) ? cls.students.length : 0}{' '}
-                    students
-                  </Text>
-                </View>
-                <Text style={s.cardTeacher}>
-                  By {cls.teacher?.displayName || cls.teacher?.username || 'Teacher'}
-                </Text>
-              </View>
-            </Pressable>
-          ))
+        )}
+
+        {/* Class list */}
+        {classes.length > 0 && (
+          <View>
+            <Text style={s.sectionLabel}>
+              {classes.length} {classes.length === 1 ? 'class' : 'classes'}
+            </Text>
+
+            {classes.map((cls) => {
+              const memberCount = Array.isArray(cls.students)
+                ? cls.students.length
+                : 0;
+              const isLiveClass = 'isLive' in cls && typeof cls.isLive === 'boolean' && cls.isLive;
+
+              return (
+                <Pressable
+                  key={cls._id}
+                  onPress={() => router.push(`/classes/${cls._id}`)}
+                  style={({ pressed }) => [
+                    s.card,
+                    pressed && { opacity: 0.9 },
+                  ]}
+                >
+                  <View
+                    style={[
+                      s.cardAccent,
+                      { backgroundColor: cls.coverColor || colors.purple },
+                    ]}
+                  />
+                  <View style={s.cardBody}>
+                    <View style={s.cardTitleRow}>
+                      <Text style={s.cardTitle} numberOfLines={1}>
+                        {cls.name}
+                      </Text>
+                      {isLiveClass && (
+                        <View style={s.livePill}>
+                          <View style={s.liveDot} />
+                          <Text style={s.livePillText}>LIVE</Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {cls.subject ? (
+                      <Text style={s.cardSubject} numberOfLines={1}>
+                        {cls.subject}
+                      </Text>
+                    ) : null}
+
+                    <View style={s.cardMeta}>
+                      <Text style={s.cardMetaText}>
+                        Code:{' '}
+                        <Text style={s.cardCode}>{cls.code}</Text>
+                      </Text>
+                      <Text style={s.cardMetaText}>
+                        {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                      </Text>
+                    </View>
+
+                    <Text style={s.cardOwner}>
+                      Owner: {cls.teacher?.displayName || cls.teacher?.username || 'Unknown'}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
         )}
 
         <View style={{ height: 40 }} />
@@ -209,15 +230,89 @@ const s = StyleSheet.create({
   },
   sub: { marginTop: 4, fontSize: 13, color: colors.muted },
 
-  actionsRow: { flexDirection: 'row', marginBottom: spacing.lg },
-  actionBtn: { flex: 1, borderRadius: radii.md, overflow: 'hidden' },
+  /* Actions */
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  actionBtn: {
+    flex: 1,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+  },
   actionInner: {
-    paddingVertical: spacing.md,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
   },
-  actionText: { color: '#fff', fontWeight: '800', fontSize: font.md },
+  actionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
+  actionBtnSecondary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.purple,
+    backgroundColor: '#fff',
+  },
+  actionTextSecondary: {
+    color: colors.purple,
+    fontWeight: '800',
+    fontSize: 13,
+  },
+
+  /* Tip card */
+  tipCard: {
+    backgroundColor: '#fff',
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  tipIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#F0EBFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  tipTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: colors.ink,
+    marginBottom: 6,
+  },
+  tipText: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    lineHeight: 20,
+    maxWidth: 280,
+  },
+
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.muted,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
+    marginLeft: 4,
+  },
+
+  /* Cards */
   card: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -228,7 +323,18 @@ const s = StyleSheet.create({
   },
   cardAccent: { width: 6 },
   cardBody: { flex: 1, padding: spacing.lg },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.ink },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  cardTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.ink,
+  },
   cardSubject: { marginTop: 2, fontSize: 12, color: colors.muted },
   cardMeta: {
     flexDirection: 'row',
@@ -237,23 +343,32 @@ const s = StyleSheet.create({
   },
   cardMetaText: { fontSize: 11, color: colors.muted },
   cardCode: { color: colors.purple, fontWeight: '800' },
-  cardTeacher: {
+  cardOwner: {
     marginTop: spacing.sm,
     fontSize: 11,
     color: colors.muted,
     fontStyle: 'italic',
   },
 
-  empty: {
-    paddingVertical: 60,
+  livePill: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E7F7EF',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '800', color: colors.ink },
-  emptyText: {
-    marginTop: 6,
-    fontSize: 12,
-    color: colors.muted,
-    textAlign: 'center',
-    paddingHorizontal: 30,
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#168A55',
+  },
+  livePillText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#168A55',
+    letterSpacing: 0.5,
   },
 });

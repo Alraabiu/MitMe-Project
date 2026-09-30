@@ -23,7 +23,7 @@ import {
   Phone,
   AtSign,
   Circle,
-  Shield,
+  UserCheck,
   User as UserIcon,
 } from 'lucide-react-native';
 import { api } from '../../src/services/api';
@@ -117,12 +117,11 @@ export default function ProfileTab() {
   };
 
   const initial = user.displayName.charAt(0).toUpperCase();
-  const role = (user.role || 'user').toLowerCase();
-  const roleLabel =
-    role === 'teacher' ? 'Teacher' : role === 'admin' ? 'Admin' : 'Student';
   const presence = user.presence || 'offline';
   const presenceColor =
     presence === 'online' ? '#168A55' : presence === 'away' ? '#F5A623' : '#999';
+  const accountStatus = (user.status || 'active').toLowerCase();
+  const isActive = accountStatus === 'active';
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -163,11 +162,8 @@ export default function ProfileTab() {
             </Text>
             <Text style={s.heroHandle}>@{user.username}</Text>
 
+            {/* Presence badge only — no role */}
             <View style={s.heroBadges}>
-              <View style={s.heroBadge}>
-                <Shield size={12} color="#fff" />
-                <Text style={s.heroBadgeText}>{roleLabel}</Text>
-              </View>
               <View style={s.heroBadge}>
                 <Circle size={10} color={presenceColor} fill={presenceColor} />
                 <Text style={s.heroBadgeText}>
@@ -180,8 +176,10 @@ export default function ProfileTab() {
           {/* ═══ Stats Row ══════════════════════════════ */}
           <View style={s.statsRow}>
             <View style={s.statItem}>
-              <Text style={s.statValue}>{roleLabel}</Text>
-              <Text style={s.statLabel}>Role</Text>
+              <Text style={s.statValue}>
+                {isActive ? 'Active' : 'Suspended'}
+              </Text>
+              <Text style={s.statLabel}>Account</Text>
             </View>
             <View style={s.statDivider} />
             <View style={s.statItem}>
@@ -192,9 +190,7 @@ export default function ProfileTab() {
             </View>
             <View style={s.statDivider} />
             <View style={s.statItem}>
-              <Text style={s.statValue}>
-                {avatar ? 'Yes' : 'No'}
-              </Text>
+              <Text style={s.statValue}>{avatar ? 'Yes' : 'No'}</Text>
               <Text style={s.statLabel}>Photo</Text>
             </View>
           </View>
@@ -293,6 +289,11 @@ export default function ProfileTab() {
                 value={user.phone}
               />
             ) : null}
+            <InfoRow
+              icon={<UserCheck size={16} color={colors.muted} />}
+              label="Account"
+              value={isActive ? 'Active' : 'Suspended'}
+            />
             <InfoRow
               icon={
                 <Circle size={16} color={presenceColor} fill={presenceColor} />

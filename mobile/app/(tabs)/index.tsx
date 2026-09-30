@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter, useFocusEffect } from 'expo-router';
 import {
   View,
@@ -10,6 +10,8 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -88,6 +90,33 @@ export default function HomeTab() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+
+  /* ─── Sync presence with app state ─────────────────── */
+
+  useEffect(() => {
+    // Mark online on mount
+    setIsOnline(true);
+    api.patch('/users/me', { presence: 'online' }).catch(() => {});
+
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      const next = nextState === 'active';
+      setIsOnline(next);
+      api
+        .patch('/users/me', { presence: next ? 'online' : 'offline' })
+        .catch(() => {});
+    };
+
+    const sub = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      sub.remove();
+      // Attempt to mark offline when the tab unmounts
+      api.patch('/users/me', { presence: 'offline' }).catch(() => {});
+    };
+  }, []);
+
+  /* ─── Load meetings ─────────────────────────────────── */
 
   const load = useCallback(async () => {
     try {
@@ -164,7 +193,6 @@ export default function HomeTab() {
 
   const firstName = user.displayName.split(' ')[0];
   const visible = meetings.slice(0, 5);
-  const isOnline = user.presence === 'online' || !user.presence;
   const liveCount = meetings.filter((m) => m.status === 'live').length;
 
   return (
@@ -208,7 +236,7 @@ export default function HomeTab() {
           </View>
         </View>
 
-        {/* ═══ Hero card — New meeting ═══ */}
+        {/* ═══ Hero card ═══ */}
         <Pressable
           onPress={createMeeting}
           disabled={busy}
@@ -221,7 +249,6 @@ export default function HomeTab() {
               end={{ x: 1, y: 1 }}
               style={s.hero}
             >
-              {/* Decorative radial */}
               <View style={s.heroGlow} />
 
               <View style={s.heroTop}>
@@ -233,9 +260,7 @@ export default function HomeTab() {
 
               <View style={s.heroBottom}>
                 <Text style={s.heroTitle}>Start instant meeting</Text>
-                <Text style={s.heroSub}>
-                  Jump into a room in one tap
-                </Text>
+                <Text style={s.heroSub}>Jump into a room in one tap</Text>
               </View>
             </LinearGradient>
           </View>
@@ -296,9 +321,17 @@ export default function HomeTab() {
             <Text style={s.statChipLabel}>Live</Text>
           </View>
           <View style={s.statChip}>
-            <IconUsers color={colors.success} size={14} />
-            <Text style={s.statChipValue}>
-              {user.presence ?? 'online'}
+            <IconUsers
+              color={isOnline ? colors.success : colors.mutedDim}
+              size={14}
+            />
+            <Text
+              style={[
+                s.statChipValue,
+                { color: isOnline ? colors.success : colors.muted },
+              ]}
+            >
+              {isOnline ? 'Online' : 'Offline'}
             </Text>
             <Text style={s.statChipLabel}>Status</Text>
           </View>
@@ -403,7 +436,7 @@ export default function HomeTab() {
           </View>
         )}
 
-        {/* ═══ Explore shortcuts ═══ */}
+        {/* ═══ Quick actions ═══ */}
         <View style={s.sectionHeader}>
           <Text style={s.sectionTitle}>Quick actions</Text>
         </View>
@@ -462,7 +495,6 @@ const s = StyleSheet.create({
     paddingBottom: spacing.xxxl,
   },
 
-  // ─── Header ─────────────────────────────────────────────
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -516,7 +548,6 @@ const s = StyleSheet.create({
     borderColor: colors.bg,
   },
 
-  // ─── Hero card ──────────────────────────────────────────
   heroWrap: {
     borderRadius: radii.xxl,
     marginBottom: spacing.md,
@@ -569,7 +600,6 @@ const s = StyleSheet.create({
     fontWeight: weights.medium,
   },
 
-  // ─── Join meeting ───────────────────────────────────────
   joinCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -617,7 +647,6 @@ const s = StyleSheet.create({
     letterSpacing: 0.4,
   },
 
-  // ─── Quick stats ────────────────────────────────────────
   statsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -649,7 +678,6 @@ const s = StyleSheet.create({
     textTransform: 'uppercase',
   },
 
-  // ─── Section headers ────────────────────────────────────
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -669,7 +697,6 @@ const s = StyleSheet.create({
     fontSize: font.sm,
   },
 
-  // ─── Meeting list ───────────────────────────────────────
   listWrap: {
     backgroundColor: colors.surface,
     borderRadius: radii.xl,
@@ -728,7 +755,6 @@ const s = StyleSheet.create({
     textTransform: 'capitalize',
   },
 
-  // ─── Empty state ────────────────────────────────────────
   emptyCard: {
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -779,7 +805,6 @@ const s = StyleSheet.create({
     fontSize: font.sm,
   },
 
-  // ─── Shortcuts ──────────────────────────────────────────
   shortcutRow: {
     flexDirection: 'row',
     gap: spacing.sm,
