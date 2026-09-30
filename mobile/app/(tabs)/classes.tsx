@@ -76,14 +76,13 @@ export default function ClassesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.header}>
-          <View>
-            <Text style={s.eyebrow}>MitMe</Text>
-            <Text style={s.title}>Classes</Text>
-            <Text style={s.sub}>
-              Create your own class or join one with a code
-            </Text>
-          </View>
-        </View>
+  <View>
+    <Text style={s.title}>Classes</Text>
+    <Text style={s.sub}>
+      Create your own class or join one with a code
+    </Text>
+  </View>
+</View>
 
         {/* Actions — both always visible */}
         <View style={s.actionsRow}>
@@ -216,12 +215,6 @@ const s = StyleSheet.create({
   loadingText: { marginTop: 12, color: colors.muted, fontSize: 14 },
 
   header: { marginBottom: spacing.lg },
-  eyebrow: {
-    color: colors.purple,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
   title: {
     marginTop: 4,
     fontSize: 28,
