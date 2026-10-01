@@ -1,6 +1,5 @@
 ﻿import { Redirect, Tabs } from 'expo-router';
 import type { ColorValue } from 'react-native';
-import { Platform } from 'react-native';
 import {
   Home,
   MessageCircle,
@@ -12,13 +11,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/context/AuthContext';
 import { useMessageNotifications } from '../../src/context/MessageNotificationsContext';
-import { colors } from '../../src/theme';
+import { useTheme } from '../../src/context/ThemeContext';
 
 type IconProps = { color: ColorValue; size: number };
 
 const IconHome = Home as unknown as React.ComponentType<IconProps>;
 const IconMessages = MessageCircle as unknown as React.ComponentType<IconProps>;
-const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconEducation = GraduationCap as unknown as React.ComponentType<IconProps>;
 const IconContacts = Users as unknown as React.ComponentType<IconProps>;
 const IconMeetings = Video as unknown as React.ComponentType<IconProps>;
 const IconProfile = UserIcon as unknown as React.ComponentType<IconProps>;
@@ -26,6 +25,7 @@ const IconProfile = UserIcon as unknown as React.ComponentType<IconProps>;
 export default function TabsLayout() {
   const { user } = useAuth();
   const { totalUnread } = useMessageNotifications();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   if (!user) return <Redirect href="/(auth)/login" />;
@@ -40,7 +40,7 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.purple,
-        tabBarInactiveTintColor: '#8A8AA0',
+        tabBarInactiveTintColor: colors.muted,
         tabBarBadgeStyle: {
           backgroundColor: colors.danger,
           color: '#fff',
@@ -48,8 +48,8 @@ export default function TabsLayout() {
           fontWeight: '800',
         },
         tabBarStyle: {
-          backgroundColor: '#000000',
-          borderTopColor: '#ECEAF2',
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
           borderTopWidth: 1,
           height: tabBarHeight,
           paddingTop: 8,
@@ -74,6 +74,7 @@ export default function TabsLayout() {
         },
       }}
     >
+      {/* 1. Home */}
       <Tabs.Screen
         name="index"
         options={{
@@ -81,6 +82,26 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <IconHome color={color} size={22} />,
         }}
       />
+
+      {/* 2. Education */}
+      <Tabs.Screen
+        name="education"
+        options={{
+          title: 'Education',
+          tabBarIcon: ({ color }) => <IconEducation color={color} size={22} />,
+        }}
+      />
+
+      {/* 3. Meetings */}
+      <Tabs.Screen
+        name="meetings"
+        options={{
+          title: 'Meetings',
+          tabBarIcon: ({ color }) => <IconMeetings color={color} size={22} />,
+        }}
+      />
+
+      {/* 4. Messages */}
       <Tabs.Screen
         name="messages"
         options={{
@@ -89,13 +110,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <IconMessages color={color} size={22} />,
         }}
       />
-      <Tabs.Screen
-        name="classes"
-        options={{
-          title: 'Classes',
-          tabBarIcon: ({ color }) => <IconClasses color={color} size={22} />,
-        }}
-      />
+
+      {/* 5. Contacts */}
       <Tabs.Screen
         name="contacts"
         options={{
@@ -103,13 +119,8 @@ export default function TabsLayout() {
           tabBarIcon: ({ color }) => <IconContacts color={color} size={22} />,
         }}
       />
-      <Tabs.Screen
-        name="meetings"
-        options={{
-          title: 'Meetings',
-          tabBarIcon: ({ color }) => <IconMeetings color={color} size={22} />,
-        }}
-      />
+
+      {/* 6. Profile */}
       <Tabs.Screen
         name="profile"
         options={{

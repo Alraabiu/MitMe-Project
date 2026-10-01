@@ -12,24 +12,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { GraduationCap, Plus, Hash } from 'lucide-react-native';
+import {
+  GraduationCap,
+  Plus,
+  School as SchoolIcon,
+  ChevronRight,
+  Users,
+} from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
-import { listClasses } from '../../src/services/classes';
-import { spacing, radii, font, type ThemePalette } from '../../src/theme';
-import type { Class } from '../../src/types';
+import { listSchools } from '../../src/services/schools';
+import { spacing, radii, font, weights, type ThemePalette } from '../../src/theme';
+import type { School } from '../../src/types';
 
 type IconProps = { color?: string; size?: number };
-const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconSchool = SchoolIcon as unknown as React.ComponentType<IconProps>;
 const IconPlus = Plus as unknown as React.ComponentType<IconProps>;
-const IconHash = Hash as unknown as React.ComponentType<IconProps>;
+const IconChevron = ChevronRight as unknown as React.ComponentType<IconProps>;
+const IconUsers = Users as unknown as React.ComponentType<IconProps>;
+const IconGraduation = GraduationCap as unknown as React.ComponentType<IconProps>;
 
-export default function ClassesScreen() {
+export default function EducationScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { colors } = useTheme();
+  const { colors, gradients } = useTheme();
 
-  const [classes, setClasses] = useState<Class[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -37,14 +45,14 @@ export default function ClassesScreen() {
 
   const load = useCallback(async () => {
     try {
-      const list = await listClasses();
-      setClasses(list);
+      const list = await listSchools();
+      setSchools(list);
     } catch (e: any) {
       const msg =
         e?.response?.data?.message ||
         e?.message ||
-        'Unable to load classes.';
-      Alert.alert('Classes', msg);
+        'Unable to load schools.';
+      Alert.alert('Education', msg);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -62,11 +70,13 @@ export default function ClassesScreen() {
     load();
   };
 
+  if (!user) return null;
+
   if (loading) {
     return (
       <View style={s.loading}>
         <ActivityIndicator size="large" color={colors.purple} />
-        <Text style={s.loadingText}>Loading classes...</Text>
+        <Text style={s.loadingText}>Loading your schools...</Text>
       </View>
     );
   }
@@ -86,79 +96,65 @@ export default function ClassesScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={s.header}>
           <View>
-            <Text style={s.title}>Classes</Text>
+            <Text style={s.title}>Education</Text>
             <Text style={s.sub}>
-              Create your own class or join one with a code
+              Create a school and organize classes with your students
             </Text>
           </View>
         </View>
 
-        {/* Actions */}
-        <View style={s.actionsRow}>
-          <Pressable
-            onPress={() => router.push('/classes/create')}
-            style={({ pressed }) => [
-              s.actionBtn,
-              pressed && { opacity: 0.9 },
-            ]}
+        {/* Create school CTA */}
+        <Pressable
+          onPress={() => router.push('/schools/create')}
+          style={({ pressed }) => [
+            s.actionBtn,
+            pressed && { opacity: 0.9 },
+          ]}
+        >
+          <LinearGradient
+            colors={[colors.purple, colors.blue]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.actionInner}
           >
-            <LinearGradient
-              colors={[colors.purple, colors.blue]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.actionInner}
-            >
-              <IconPlus color="#fff" size={18} />
-              <Text style={s.actionText}>Create Class</Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/classes/join')}
-            style={({ pressed }) => [
-              s.actionBtnSecondary,
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <IconHash color={colors.purple} size={18} />
-            <Text style={s.actionTextSecondary}>Join with Code</Text>
-          </Pressable>
-        </View>
+            <IconPlus color="#fff" size={18} />
+            <Text style={s.actionText}>Create School</Text>
+          </LinearGradient>
+        </Pressable>
 
         {/* Empty state */}
-        {classes.length === 0 && (
+        {schools.length === 0 && (
           <View style={s.tipCard}>
             <View style={s.tipIcon}>
-              <IconClasses color={colors.purple} size={22} />
+              <IconGraduation color={colors.purple} size={26} />
             </View>
-            <Text style={s.tipTitle}>Start an online class</Text>
+            <Text style={s.tipTitle}>Start your school</Text>
             <Text style={s.tipText}>
-              Create a class for your group, school, or study session.
-              Share the code or link with anyone you want to invite.
+              Create a school for your students. Add classes, invite learners,
+              and approve who joins.
             </Text>
           </View>
         )}
 
-        {/* Class list */}
-        {classes.length > 0 && (
+        {/* School list */}
+        {schools.length > 0 && (
           <View>
             <Text style={s.sectionLabel}>
-              {classes.length} {classes.length === 1 ? 'class' : 'classes'}
+              {schools.length} {schools.length === 1 ? 'school' : 'schools'}
             </Text>
 
-            {classes.map((cls) => {
-              const memberCount = Array.isArray(cls.students)
-                ? cls.students.length
-                : 0;
-              const isLiveClass =
-                'isLive' in cls && typeof cls.isLive === 'boolean' && cls.isLive;
+            {schools.map((sc) => {
+              const owner =
+                typeof sc.owner === 'object' ? sc.owner : null;
+              const classCount = sc.classCount ?? 0;
 
               return (
                 <Pressable
-                  key={cls._id}
-                  onPress={() => router.push(`/classes/${cls._id}`)}
+                  key={sc._id}
+                  onPress={() => router.push(`/schools/${sc._id}`)}
                   style={({ pressed }) => [
                     s.card,
                     pressed && { opacity: 0.9 },
@@ -167,44 +163,46 @@ export default function ClassesScreen() {
                   <View
                     style={[
                       s.cardAccent,
-                      { backgroundColor: cls.coverColor || colors.purple },
+                      { backgroundColor: sc.coverColor || colors.purple },
                     ]}
                   />
                   <View style={s.cardBody}>
                     <View style={s.cardTitleRow}>
+                      <View style={s.cardIconWrap}>
+                        <IconSchool
+                          color={colors.purple}
+                          size={18}
+                        />
+                      </View>
                       <Text style={s.cardTitle} numberOfLines={1}>
-                        {cls.name}
+                        {sc.name}
                       </Text>
-                      {isLiveClass && (
-                        <View style={s.livePill}>
-                          <View style={s.liveDot} />
-                          <Text style={s.livePillText}>LIVE</Text>
-                        </View>
-                      )}
                     </View>
 
-                    {cls.subject ? (
-                      <Text style={s.cardSubject} numberOfLines={1}>
-                        {cls.subject}
+                    {sc.description ? (
+                      <Text style={s.cardDesc} numberOfLines={2}>
+                        {sc.description}
                       </Text>
                     ) : null}
 
                     <View style={s.cardMeta}>
                       <Text style={s.cardMetaText}>
-                        Code: <Text style={s.cardCode}>{cls.code}</Text>
+                        Code: <Text style={s.cardCode}>{sc.code}</Text>
                       </Text>
-                      <Text style={s.cardMetaText}>
-                        {memberCount}{' '}
-                        {memberCount === 1 ? 'member' : 'members'}
-                      </Text>
+                      <View style={s.cardMetaRight}>
+                        <IconUsers color={colors.muted} size={11} />
+                        <Text style={s.cardMetaText}>
+                          {classCount} {classCount === 1 ? 'class' : 'classes'}
+                        </Text>
+                      </View>
                     </View>
 
-                    <Text style={s.cardOwner}>
-                      Owner:{' '}
-                      {cls.teacher?.displayName ||
-                        cls.teacher?.username ||
-                        'Unknown'}
-                    </Text>
+                    <View style={s.cardFooter}>
+                      <Text style={s.cardOwner}>
+                        Owner: {owner?.displayName || owner?.username || 'You'}
+                      </Text>
+                      <IconChevron color={colors.muted} size={16} />
+                    </View>
                   </View>
                 </Pressable>
               );
@@ -219,7 +217,7 @@ export default function ClassesScreen() {
 }
 
 /* ═══════════════════════════════════════════════════
-   STYLES — built from the active theme palette
+   STYLES
    ═══════════════════════════════════════════════════ */
 
 const makeStyles = (colors: ThemePalette) =>
@@ -236,52 +234,25 @@ const makeStyles = (colors: ThemePalette) =>
 
     header: { marginBottom: spacing.lg },
     title: {
-      marginTop: 4,
       fontSize: 28,
       fontWeight: '900',
       color: colors.ink,
     },
     sub: { marginTop: 4, fontSize: 13, color: colors.muted },
 
-    /* Actions */
-    actionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
-    },
     actionBtn: {
-      flex: 1,
       borderRadius: radii.md,
       overflow: 'hidden',
+      marginBottom: spacing.lg,
     },
     actionInner: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: 8,
       paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
     },
-    actionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
-
-    actionBtnSecondary: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: spacing.md,
-      paddingHorizontal: spacing.md,
-      borderRadius: radii.md,
-      borderWidth: 1.5,
-      borderColor: colors.purple,
-      backgroundColor: colors.surface,
-    },
-    actionTextSecondary: {
-      color: colors.purple,
-      fontWeight: '800',
-      fontSize: 13,
-    },
+    actionText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
     /* Tip card */
     tipCard: {
@@ -294,9 +265,9 @@ const makeStyles = (colors: ThemePalette) =>
       borderColor: colors.border,
     },
     tipIcon: {
-      width: 56,
-      height: 56,
-      borderRadius: 18,
+      width: 60,
+      height: 60,
+      borderRadius: 20,
       backgroundColor: colors.purpleSoft,
       alignItems: 'center',
       justifyContent: 'center',
@@ -341,8 +312,15 @@ const makeStyles = (colors: ThemePalette) =>
     cardTitleRow: {
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 8,
+      gap: 10,
+    },
+    cardIconWrap: {
+      width: 34,
+      height: 34,
+      borderRadius: 12,
+      backgroundColor: colors.purpleSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     cardTitle: {
       flex: 1,
@@ -350,40 +328,34 @@ const makeStyles = (colors: ThemePalette) =>
       fontWeight: '800',
       color: colors.ink,
     },
-    cardSubject: { marginTop: 2, fontSize: 12, color: colors.muted },
+    cardDesc: {
+      marginTop: 6,
+      fontSize: 12,
+      color: colors.muted,
+      lineHeight: 18,
+    },
     cardMeta: {
       flexDirection: 'row',
       justifyContent: 'space-between',
+      alignItems: 'center',
       marginTop: spacing.sm,
     },
-    cardMetaText: { fontSize: 11, color: colors.muted },
-    cardCode: { color: colors.purple, fontWeight: '800' },
-    cardOwner: {
-      marginTop: spacing.sm,
-      fontSize: 11,
-      color: colors.muted,
-      fontStyle: 'italic',
-    },
-
-    livePill: {
+    cardMetaRight: {
       flexDirection: 'row',
       alignItems: 'center',
       gap: 4,
-      backgroundColor: colors.successSoft,
-      borderRadius: 10,
-      paddingHorizontal: 8,
-      paddingVertical: 3,
     },
-    liveDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.success,
+    cardMetaText: { fontSize: 11, color: colors.muted },
+    cardCode: { color: colors.purple, fontWeight: '800' },
+    cardFooter: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginTop: spacing.sm,
     },
-    livePillText: {
-      fontSize: 9,
-      fontWeight: '900',
-      color: colors.success,
-      letterSpacing: 0.5,
+    cardOwner: {
+      fontSize: 11,
+      color: colors.muted,
+      fontStyle: 'italic',
     },
   });

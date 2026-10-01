@@ -1,5 +1,5 @@
-﻿import { useMemo, useState } from 'react';
-import { useRouter } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -14,62 +14,53 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { api } from '../../src/services/api';
-import { useTheme } from '../../src/context/ThemeContext';
-import { spacing, radii, font, type ThemePalette } from '../../src/theme';
+import { createClassInSchool } from '../../../../src/services/schools';
+import { useTheme } from '../../../../src/context/ThemeContext';
+import { spacing, radii, font, type ThemePalette } from '../../../../src/theme';
 
-export default function JoinClassScreen() {
+export default function CreateClassInSchoolScreen() {
   const router = useRouter();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const { colors } = useTheme();
 
-  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [subject, setSubject] = useState('');
   const [busy, setBusy] = useState(false);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
 
   const submit = async () => {
-    const trimmed = code.trim().toUpperCase();
-    if (!trimmed || trimmed.length < 6) {
-      return Alert.alert('MitMe', 'Enter a valid class code.');
+    if (!id) {
+      return Alert.alert('MitMe', 'Missing school ID.');
+    }
+    if (!name.trim() || name.trim().length < 2) {
+      return Alert.alert('MitMe', 'Class name must be at least 2 characters.');
     }
 
     setBusy(true);
     try {
-      const r = await api.post('/classes/join', { code: trimmed });
+      const cls = await createClassInSchool(String(id), {
+        name: name.trim(),
+        subject: subject.trim() || undefined,
+      });
 
-      const status = (r.data as any)?.status || 'joined';
-      const cls = (r.data as any)?.data?.class ?? (r.data as any)?.class;
-
-      if (status === 'pending') {
-        Alert.alert(
-          'Request Sent',
-          `Your request to join "${cls?.name || 'the class'}" has been sent. The school admin will review it soon.`,
-          [{ text: 'OK', onPress: () => router.back() }]
-        );
-      } else {
-        Alert.alert(
-          'Joined!',
-          `You joined "${cls?.name || 'the class'}".`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (cls?._id) {
-                  router.replace(`/classes/${cls._id}`);
-                } else {
-                  router.back();
-                }
-              },
-            },
-          ]
-        );
-      }
+      Alert.alert(
+        'Class Created',
+        `"${cls.name}" is ready.\n\nJoin code: ${cls.joinCode || cls.code}\n\nShare this with anyone you want to invite.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back(),
+          },
+        ]
+      );
     } catch (e: any) {
-      const msg =
+      Alert.alert(
+        'MitMe',
         e?.response?.data?.message ||
-        e?.message ||
-        'Unable to join class.';
-      Alert.alert('MitMe', msg);
+          e?.message ||
+          'Unable to create class.'
+      );
     } finally {
       setBusy(false);
     }
@@ -90,24 +81,33 @@ export default function JoinClassScreen() {
             <Text style={s.backText}>← Back</Text>
           </Pressable>
 
-          <Text style={s.title}>Join a Class</Text>
+          <Text style={s.title}>Create Class</Text>
           <Text style={s.sub}>
-            Ask your teacher for the class code, or open the share link they
-            sent you.
+            A unique join code will be generated. Share it with anyone you
+            want to invite — they'll request to join and you approve.
           </Text>
 
-          <Text style={s.label}>Class code</Text>
+          <Text style={s.label}>Class name *</Text>
           <TextInput
-            style={[s.input, s.codeInput]}
-            placeholder="ABC-DEF"
+            style={s.input}
+            placeholder="e.g. Class 1"
             placeholderTextColor={colors.muted}
-            value={code}
-            onChangeText={(v) => setCode(v.toUpperCase())}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={10}
+            value={name}
+            onChangeText={setName}
             editable={!busy}
             autoFocus
+            maxLength={120}
+          />
+
+          <Text style={s.label}>Subject (optional)</Text>
+          <TextInput
+            style={s.input}
+            placeholder="e.g. Mathematics"
+            placeholderTextColor={colors.muted}
+            value={subject}
+            onChangeText={setSubject}
+            editable={!busy}
+            maxLength={60}
           />
 
           <Pressable
@@ -128,7 +128,7 @@ export default function JoinClassScreen() {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={s.btnText}>Join Class</Text>
+                <Text style={s.btnText}>Create Class</Text>
               )}
             </LinearGradient>
           </Pressable>
@@ -149,12 +149,7 @@ export default function JoinClassScreen() {
 const makeStyles = (colors: ThemePalette) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
-    scroll: {
-      padding: spacing.lg,
-      paddingBottom: 40,
-      justifyContent: 'center',
-      flexGrow: 1,
-    },
+    scroll: { padding: spacing.lg, paddingBottom: 40 },
     backText: {
       color: colors.purple,
       fontWeight: '800',
@@ -166,13 +161,11 @@ const makeStyles = (colors: ThemePalette) =>
       fontWeight: '900',
       color: colors.ink,
       marginBottom: 4,
-      textAlign: 'center',
     },
     sub: {
       fontSize: 13,
       color: colors.muted,
       marginBottom: spacing.xl,
-      textAlign: 'center',
       lineHeight: 20,
     },
     label: {
@@ -180,7 +173,7 @@ const makeStyles = (colors: ThemePalette) =>
       fontWeight: '800',
       color: colors.ink,
       marginBottom: 6,
-      textAlign: 'center',
+      marginTop: spacing.md,
     },
     input: {
       backgroundColor: colors.surface,
@@ -192,17 +185,10 @@ const makeStyles = (colors: ThemePalette) =>
       fontSize: font.md,
       color: colors.ink,
     },
-    codeInput: {
-      textAlign: 'center',
-      fontSize: 24,
-      fontWeight: '800',
-      letterSpacing: 4,
-      paddingVertical: spacing.lg,
-    },
     btn: {
       borderRadius: radii.md,
       overflow: 'hidden',
-      marginTop: spacing.lg,
+      marginTop: spacing.xl,
     },
     btnInner: {
       paddingVertical: spacing.md + 2,

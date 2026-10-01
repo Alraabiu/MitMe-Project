@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -14,62 +14,49 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { api } from '../../src/services/api';
+import { createSchool } from '../../src/services/schools';
 import { useTheme } from '../../src/context/ThemeContext';
 import { spacing, radii, font, type ThemePalette } from '../../src/theme';
 
-export default function JoinClassScreen() {
+export default function CreateSchoolScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, gradients } = useTheme();
 
-  const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
 
   const submit = async () => {
-    const trimmed = code.trim().toUpperCase();
-    if (!trimmed || trimmed.length < 6) {
-      return Alert.alert('MitMe', 'Enter a valid class code.');
+    if (!name.trim() || name.trim().length < 2) {
+      return Alert.alert('MitMe', 'School name must be at least 2 characters.');
     }
 
     setBusy(true);
     try {
-      const r = await api.post('/classes/join', { code: trimmed });
+      const school = await createSchool({
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
 
-      const status = (r.data as any)?.status || 'joined';
-      const cls = (r.data as any)?.data?.class ?? (r.data as any)?.class;
-
-      if (status === 'pending') {
-        Alert.alert(
-          'Request Sent',
-          `Your request to join "${cls?.name || 'the class'}" has been sent. The school admin will review it soon.`,
-          [{ text: 'OK', onPress: () => router.back() }]
-        );
-      } else {
-        Alert.alert(
-          'Joined!',
-          `You joined "${cls?.name || 'the class'}".`,
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                if (cls?._id) {
-                  router.replace(`/classes/${cls._id}`);
-                } else {
-                  router.back();
-                }
-              },
-            },
-          ]
-        );
-      }
+      Alert.alert(
+        'School Created',
+        `"${school.name}" is ready.\n\nSchool code: ${school.code}\n\nNext: create your first class.`,
+        [
+          {
+            text: 'Open School',
+            onPress: () => router.replace(`/schools/${school._id}`),
+          },
+        ]
+      );
     } catch (e: any) {
-      const msg =
+      Alert.alert(
+        'MitMe',
         e?.response?.data?.message ||
-        e?.message ||
-        'Unable to join class.';
-      Alert.alert('MitMe', msg);
+          e?.message ||
+          'Unable to create school.'
+      );
     } finally {
       setBusy(false);
     }
@@ -86,28 +73,35 @@ export default function JoinClassScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Pressable onPress={() => router.back()} hitSlop={8}>
-            <Text style={s.backText}>← Back</Text>
-          </Pressable>
-
-          <Text style={s.title}>Join a Class</Text>
+          <Text style={s.title}>Create School</Text>
           <Text style={s.sub}>
-            Ask your teacher for the class code, or open the share link they
-            sent you.
+            Give your school a name. You'll be its owner and can add classes
+            and approve students.
           </Text>
 
-          <Text style={s.label}>Class code</Text>
+          <Text style={s.label}>School name *</Text>
           <TextInput
-            style={[s.input, s.codeInput]}
-            placeholder="ABC-DEF"
+            style={s.input}
+            placeholder="e.g. Greenfield Academy"
             placeholderTextColor={colors.muted}
-            value={code}
-            onChangeText={(v) => setCode(v.toUpperCase())}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={10}
+            value={name}
+            onChangeText={setName}
             editable={!busy}
             autoFocus
+            maxLength={120}
+          />
+
+          <Text style={s.label}>Description (optional)</Text>
+          <TextInput
+            style={[s.input, s.textarea]}
+            placeholder="What is this school about?"
+            placeholderTextColor={colors.muted}
+            value={description}
+            onChangeText={setDescription}
+            multiline
+            numberOfLines={4}
+            editable={!busy}
+            maxLength={500}
           />
 
           <Pressable
@@ -128,7 +122,7 @@ export default function JoinClassScreen() {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={s.btnText}>Join Class</Text>
+                <Text style={s.btnText}>Create School</Text>
               )}
             </LinearGradient>
           </Pressable>
@@ -149,30 +143,17 @@ export default function JoinClassScreen() {
 const makeStyles = (colors: ThemePalette) =>
   StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.bg },
-    scroll: {
-      padding: spacing.lg,
-      paddingBottom: 40,
-      justifyContent: 'center',
-      flexGrow: 1,
-    },
-    backText: {
-      color: colors.purple,
-      fontWeight: '800',
-      fontSize: 14,
-      marginBottom: spacing.md,
-    },
+    scroll: { padding: spacing.lg, paddingBottom: 40 },
     title: {
       fontSize: 26,
       fontWeight: '900',
       color: colors.ink,
       marginBottom: 4,
-      textAlign: 'center',
     },
     sub: {
       fontSize: 13,
       color: colors.muted,
       marginBottom: spacing.xl,
-      textAlign: 'center',
       lineHeight: 20,
     },
     label: {
@@ -180,7 +161,7 @@ const makeStyles = (colors: ThemePalette) =>
       fontWeight: '800',
       color: colors.ink,
       marginBottom: 6,
-      textAlign: 'center',
+      marginTop: spacing.md,
     },
     input: {
       backgroundColor: colors.surface,
@@ -192,17 +173,11 @@ const makeStyles = (colors: ThemePalette) =>
       fontSize: font.md,
       color: colors.ink,
     },
-    codeInput: {
-      textAlign: 'center',
-      fontSize: 24,
-      fontWeight: '800',
-      letterSpacing: 4,
-      paddingVertical: spacing.lg,
-    },
+    textarea: { minHeight: 100, textAlignVertical: 'top' },
     btn: {
       borderRadius: radii.md,
       overflow: 'hidden',
-      marginTop: spacing.lg,
+      marginTop: spacing.xl,
     },
     btnInner: {
       paddingVertical: spacing.md + 2,
