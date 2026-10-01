@@ -13,14 +13,18 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useMessageNotifications } from '../../src/context/MessageNotificationsContext';
 import { useTheme } from '../../src/context/ThemeContext';
 
+/* ─── Icon shorthands ─────────────────────────────── */
+
 type IconProps = { color: ColorValue; size: number };
 
 const IconHome = Home as unknown as React.ComponentType<IconProps>;
-const IconMessages = MessageCircle as unknown as React.ComponentType<IconProps>;
 const IconEducation = GraduationCap as unknown as React.ComponentType<IconProps>;
-const IconContacts = Users as unknown as React.ComponentType<IconProps>;
 const IconMeetings = Video as unknown as React.ComponentType<IconProps>;
+const IconMessages = MessageCircle as unknown as React.ComponentType<IconProps>;
+const IconContacts = Users as unknown as React.ComponentType<IconProps>;
 const IconProfile = UserIcon as unknown as React.ComponentType<IconProps>;
+
+/* ─── Tabs ────────────────────────────────────────── */
 
 export default function TabsLayout() {
   const { user } = useAuth();
@@ -83,7 +87,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 2. Education */}
+      {/* 2. Education — schools, classes, students */}
       <Tabs.Screen
         name="education"
         options={{
@@ -92,7 +96,7 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* 3. Meetings */}
+      {/* 3. Meetings — business / ad-hoc rooms */}
       <Tabs.Screen
         name="meetings"
         options={{
