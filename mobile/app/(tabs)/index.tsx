@@ -78,7 +78,7 @@ function getGreeting() {
 }
 
 export default function HomeTab() {
-  const { user } = useAuth();
+  const { user, isOnline } = useAuth();
   const router = useRouter();
   const { colors, gradients } = useTheme();
 
@@ -165,7 +165,6 @@ export default function HomeTab() {
 
   const firstName = user.displayName.split(' ')[0];
   const visible = meetings.slice(0, 5);
-  const isOnline = user.presence === 'online' || !user.presence;
   const liveCount = meetings.filter((m) => m.status === 'live').length;
 
   return (
@@ -397,9 +396,7 @@ export default function HomeTab() {
                     </View>
                   </View>
 
-                  <View
-                    style={[s.badge, { backgroundColor: status.bg }]}
-                  >
+                  <View style={[s.badge, { backgroundColor: status.bg }]}>
                     <Text style={[s.badgeText, { color: status.text }]}>
                       {status.label}
                     </Text>
