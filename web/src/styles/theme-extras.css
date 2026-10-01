@@ -262,3 +262,40 @@ body {
 .theme-option.active:hover {
   background: linear-gradient(135deg, var(--purple-light), var(--blue));
 }
+
+/* ------------------------------------------------------------
+   4. Password input with eye toggle
+   ------------------------------------------------------------ */
+.password-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  padding-right: 46px !important;
+}
+
+.password-eye {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--muted, #6b6b7b);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.password-eye:hover {
+  color: var(--purple, #6d42d8);
+}
+
+.password-eye:focus {
+  outline: none;
+  color: var(--purple, #6d42d8);
+}

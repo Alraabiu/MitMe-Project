@@ -10,7 +10,6 @@ interface Props {
 export function CreateClassForm({ onCreated, onCancel }: Props) {
   const [name, setName] = useState('');
   const [subject, setSubject] = useState('');
-  const [description, setDescription] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +27,6 @@ export function CreateClassForm({ onCreated, onCancel }: Props) {
       const cls = await createClass({
         name: name.trim(),
         subject: subject.trim() || undefined,
-        description: description.trim() || undefined,
       });
       onCreated(cls);
     } catch (err: any) {
@@ -50,14 +48,14 @@ export function CreateClassForm({ onCreated, onCancel }: Props) {
 
       <h1 className="classFormTitle">Create Class</h1>
       <p className="classFormSub">
-        Students will join using the code we generate for you.
+        Share the class code with anyone you want to invite.
       </p>
 
       <form onSubmit={submit}>
         <label className="classFormLabel">Class name *</label>
         <input
           className="classFormInput"
-          placeholder="e.g. Mathematics 101"
+          placeholder="Class Name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           disabled={busy}
@@ -67,18 +65,9 @@ export function CreateClassForm({ onCreated, onCancel }: Props) {
         <label className="classFormLabel">Subject (optional)</label>
         <input
           className="classFormInput"
-          placeholder="e.g. Math"
+          placeholder="Subject"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
-          disabled={busy}
-        />
-
-        <label className="classFormLabel">Description (optional)</label>
-        <textarea
-          className="classFormInput classFormTextarea"
-          placeholder="What will students learn?"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
           disabled={busy}
         />
 

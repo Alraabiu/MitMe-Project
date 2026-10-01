@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
+import { Eye, EyeOff } from 'lucide-react';
 import { api, setToken } from '../../services/api';
 import type { AuthResponse, User } from '../../types';
 import { Logo } from '../common/Logo';
@@ -29,6 +30,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
     password: '',
     phone: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -39,6 +41,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
   const switchMode = () => {
     setMode((m) => (m === 'login' ? 'register' : 'login'));
     setError('');
+    setShowPassword(false);
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -95,9 +98,7 @@ export function AuthPage({ onLogin }: AuthPageProps) {
       onLogin(data.user);
     } catch (err: unknown) {
       const apiErr = err as { response?: { data?: { message?: string } } };
-      setError(
-        apiErr.response?.data?.message || 'Google sign-in failed.'
-      );
+      setError(apiErr.response?.data?.message || 'Google sign-in failed.');
     } finally {
       setSubmitting(false);
     }
@@ -160,16 +161,31 @@ export function AuthPage({ onLogin }: AuthPageProps) {
             />
           )}
 
-          <input
-            className="input"
-            type="password"
-            placeholder="Password (8+ characters)"
-            value={form.password}
-            onChange={update('password')}
-            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            required
-            minLength={8}
-          />
+          {/* Password with show / hide toggle */}
+          <div className="password-wrap">
+            <input
+              className="input password-input"
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password (8+ characters)"
+              value={form.password}
+              onChange={update('password')}
+              autoComplete={
+                mode === 'login' ? 'current-password' : 'new-password'
+              }
+              required
+              minLength={8}
+            />
+            <button
+              type="button"
+              className="password-eye"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              title={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
 
           {error && <div className="error">{error}</div>}
 
