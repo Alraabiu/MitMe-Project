@@ -1,4 +1,4 @@
-﻿import { useCallback, useState } from 'react';
+﻿import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import {
   View,
@@ -14,8 +14,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GraduationCap, Plus, Hash } from 'lucide-react-native';
 import { useAuth } from '../../src/context/AuthContext';
+import { useTheme } from '../../src/context/ThemeContext';
 import { listClasses } from '../../src/services/classes';
-import { colors, spacing, radii, font, shadows } from '../../src/theme';
+import { spacing, radii, font, type ThemePalette } from '../../src/theme';
 import type { Class } from '../../src/types';
 
 type IconProps = { color?: string; size?: number };
@@ -26,9 +27,13 @@ const IconHash = Hash as unknown as React.ComponentType<IconProps>;
 export default function ClassesScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { colors } = useTheme();
+
   const [classes, setClasses] = useState<Class[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const s = useMemo(() => makeStyles(colors), [colors]);
 
   const load = useCallback(async () => {
     try {
@@ -71,20 +76,26 @@ export default function ClassesScreen() {
       <ScrollView
         contentContainerStyle={s.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.purple}
+            colors={[colors.purple]}
+            progressBackgroundColor={colors.surface}
+          />
         }
         showsVerticalScrollIndicator={false}
       >
         <View style={s.header}>
-  <View>
-    <Text style={s.title}>Classes</Text>
-    <Text style={s.sub}>
-      Create your own class or join one with a code
-    </Text>
-  </View>
-</View>
+          <View>
+            <Text style={s.title}>Classes</Text>
+            <Text style={s.sub}>
+              Create your own class or join one with a code
+            </Text>
+          </View>
+        </View>
 
-        {/* Actions — both always visible */}
+        {/* Actions */}
         <View style={s.actionsRow}>
           <Pressable
             onPress={() => router.push('/classes/create')}
@@ -116,7 +127,7 @@ export default function ClassesScreen() {
           </Pressable>
         </View>
 
-        {/* Info banner for empty state */}
+        {/* Empty state */}
         {classes.length === 0 && (
           <View style={s.tipCard}>
             <View style={s.tipIcon}>
@@ -141,7 +152,8 @@ export default function ClassesScreen() {
               const memberCount = Array.isArray(cls.students)
                 ? cls.students.length
                 : 0;
-              const isLiveClass = 'isLive' in cls && typeof cls.isLive === 'boolean' && cls.isLive;
+              const isLiveClass =
+                'isLive' in cls && typeof cls.isLive === 'boolean' && cls.isLive;
 
               return (
                 <Pressable
@@ -179,16 +191,19 @@ export default function ClassesScreen() {
 
                     <View style={s.cardMeta}>
                       <Text style={s.cardMetaText}>
-                        Code:{' '}
-                        <Text style={s.cardCode}>{cls.code}</Text>
+                        Code: <Text style={s.cardCode}>{cls.code}</Text>
                       </Text>
                       <Text style={s.cardMetaText}>
-                        {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                        {memberCount}{' '}
+                        {memberCount === 1 ? 'member' : 'members'}
                       </Text>
                     </View>
 
                     <Text style={s.cardOwner}>
-                      Owner: {cls.teacher?.displayName || cls.teacher?.username || 'Unknown'}
+                      Owner:{' '}
+                      {cls.teacher?.displayName ||
+                        cls.teacher?.username ||
+                        'Unknown'}
                     </Text>
                   </View>
                 </Pressable>
@@ -203,165 +218,172 @@ export default function ClassesScreen() {
   );
 }
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: spacing.lg, paddingBottom: 30 },
-  loading: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: { marginTop: 12, color: colors.muted, fontSize: 14 },
+/* ═══════════════════════════════════════════════════
+   STYLES — built from the active theme palette
+   ═══════════════════════════════════════════════════ */
 
-  header: { marginBottom: spacing.lg },
-  title: {
-    marginTop: 4,
-    fontSize: 28,
-    fontWeight: '900',
-    color: colors.ink,
-  },
-  sub: { marginTop: 4, fontSize: 13, color: colors.muted },
+const makeStyles = (colors: ThemePalette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    scroll: { padding: spacing.lg, paddingBottom: 30 },
+    loading: {
+      flex: 1,
+      backgroundColor: colors.bg,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    loadingText: { marginTop: 12, color: colors.muted, fontSize: 14 },
 
-  /* Actions */
-  actionsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  actionBtn: {
-    flex: 1,
-    borderRadius: radii.md,
-    overflow: 'hidden',
-  },
-  actionInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  actionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+    header: { marginBottom: spacing.lg },
+    title: {
+      marginTop: 4,
+      fontSize: 28,
+      fontWeight: '900',
+      color: colors.ink,
+    },
+    sub: { marginTop: 4, fontSize: 13, color: colors.muted },
 
-  actionBtnSecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    borderColor: colors.purple,
-    backgroundColor: '#fff',
-  },
-  actionTextSecondary: {
-    color: colors.purple,
-    fontWeight: '800',
-    fontSize: 13,
-  },
+    /* Actions */
+    actionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: spacing.lg,
+    },
+    actionBtn: {
+      flex: 1,
+      borderRadius: radii.md,
+      overflow: 'hidden',
+    },
+    actionInner: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+    },
+    actionText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
-  /* Tip card */
-  tipCard: {
-    backgroundColor: '#fff',
-    borderRadius: radii.lg,
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  tipIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#F0EBFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  tipTitle: {
-    fontSize: 16,
-    fontWeight: '900',
-    color: colors.ink,
-    marginBottom: 6,
-  },
-  tipText: {
-    fontSize: 13,
-    color: colors.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 280,
-  },
+    actionBtnSecondary: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: spacing.md,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      borderWidth: 1.5,
+      borderColor: colors.purple,
+      backgroundColor: colors.surface,
+    },
+    actionTextSecondary: {
+      color: colors.purple,
+      fontWeight: '800',
+      fontSize: 13,
+    },
 
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.muted,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    marginBottom: spacing.md,
-    marginLeft: 4,
-  },
+    /* Tip card */
+    tipCard: {
+      backgroundColor: colors.surface,
+      borderRadius: radii.lg,
+      padding: spacing.xl,
+      marginBottom: spacing.lg,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    tipIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: colors.purpleSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: spacing.md,
+    },
+    tipTitle: {
+      fontSize: 16,
+      fontWeight: '900',
+      color: colors.ink,
+      marginBottom: 6,
+    },
+    tipText: {
+      fontSize: 13,
+      color: colors.muted,
+      textAlign: 'center',
+      lineHeight: 20,
+      maxWidth: 280,
+    },
 
-  /* Cards */
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: radii.md,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
-    ...shadows.card,
-  },
-  cardAccent: { width: 6 },
-  cardBody: { flex: 1, padding: spacing.lg },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  cardTitle: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.ink,
-  },
-  cardSubject: { marginTop: 2, fontSize: 12, color: colors.muted },
-  cardMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.sm,
-  },
-  cardMetaText: { fontSize: 11, color: colors.muted },
-  cardCode: { color: colors.purple, fontWeight: '800' },
-  cardOwner: {
-    marginTop: spacing.sm,
-    fontSize: 11,
-    color: colors.muted,
-    fontStyle: 'italic',
-  },
+    sectionLabel: {
+      fontSize: 12,
+      fontWeight: '800',
+      color: colors.muted,
+      letterSpacing: 0.5,
+      textTransform: 'uppercase',
+      marginBottom: spacing.md,
+      marginLeft: 4,
+    },
 
-  livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#E7F7EF',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#168A55',
-  },
-  livePillText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#168A55',
-    letterSpacing: 0.5,
-  },
-});
+    /* Cards */
+    card: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      borderRadius: radii.md,
+      overflow: 'hidden',
+      marginBottom: spacing.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    cardAccent: { width: 6 },
+    cardBody: { flex: 1, padding: spacing.lg },
+    cardTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+    },
+    cardTitle: {
+      flex: 1,
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.ink,
+    },
+    cardSubject: { marginTop: 2, fontSize: 12, color: colors.muted },
+    cardMeta: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: spacing.sm,
+    },
+    cardMetaText: { fontSize: 11, color: colors.muted },
+    cardCode: { color: colors.purple, fontWeight: '800' },
+    cardOwner: {
+      marginTop: spacing.sm,
+      fontSize: 11,
+      color: colors.muted,
+      fontStyle: 'italic',
+    },
+
+    livePill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      backgroundColor: colors.successSoft,
+      borderRadius: 10,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+    },
+    liveDot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: colors.success,
+    },
+    livePillText: {
+      fontSize: 9,
+      fontWeight: '900',
+      color: colors.success,
+      letterSpacing: 0.5,
+    },
+  });

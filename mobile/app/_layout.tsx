@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import Constants from 'expo-constants';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import { MessageNotificationsProvider } from '../src/context/MessageNotificationsContext';
+import { ThemeProvider } from '../src/context/ThemeContext';
 import { useAppReady } from '../src/hooks/useAppReady';
 
 // ─── WebRTC / LiveKit native bootstrap ──────────────────
@@ -26,13 +27,15 @@ if (!isExpoGo) {
 
 export default function RootLayout() {
   return (
-    <SafeAreaProvider>
-      <AuthProvider>
-        <MessageNotificationsProvider>
-          <AppShell />
-        </MessageNotificationsProvider>
-      </AuthProvider>
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <MessageNotificationsProvider>
+            <AppShell />
+          </MessageNotificationsProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
 

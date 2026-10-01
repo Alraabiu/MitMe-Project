@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -22,23 +22,30 @@ import {
   Mail,
   Phone,
   AtSign,
-  Circle,
   UserCheck,
+  Moon,
+  Sun,
+  Monitor,
   User as UserIcon,
 } from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
-import { colors, spacing, radii, font, shadows } from '../../src/theme';
+import { useTheme, type ThemeMode } from '../../src/context/ThemeContext';
+import { spacing, radii, font, type ThemePalette } from '../../src/theme';
 import type { User } from '../../src/types';
 
 const MAX_BYTES = 2 * 1024 * 1024;
 
 export default function ProfileTab() {
   const { user, logout, updateUser } = useAuth();
+  const { colors, mode, setMode } = useTheme();
+
   const [name, setName] = useState(user?.displayName || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [avatar, setAvatar] = useState(user?.avatarUrl || '');
   const [saving, setSaving] = useState(false);
+
+  const s = useMemo(() => makeStyles(colors), [colors]);
 
   if (!user) return null;
 
@@ -116,10 +123,41 @@ export default function ProfileTab() {
     ]);
   };
 
-  const initial = user.displayName.charAt(0).toUpperCase();
+  /* ─── Info row ────────────────────────────────────── */
 
+  const InfoRow = ({
+    icon,
+    label,
+    value,
+  }: {
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+  }) => (
+    <View style={s.infoRow}>
+      <View style={s.infoRowLeft}>
+        {icon}
+        <Text style={s.infoRowLabel}>{label}</Text>
+      </View>
+      <Text style={s.infoRowValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+
+  const initial = user.displayName.charAt(0).toUpperCase();
   const accountStatus = (user.status || 'active').toLowerCase();
   const isActive = accountStatus === 'active';
+
+  const appearanceOptions: {
+    value: ThemeMode;
+    label: string;
+    Icon: React.ComponentType<{ size?: number; color?: string }>;
+  }[] = [
+    { value: 'light', label: 'Light', Icon: Sun },
+    { value: 'dark', label: 'Dark', Icon: Moon },
+    { value: 'system', label: 'System', Icon: Monitor },
+  ];
 
   return (
     <SafeAreaView style={s.safe} edges={['top']}>
@@ -159,7 +197,6 @@ export default function ProfileTab() {
               {user.displayName}
             </Text>
             <Text style={s.heroHandle}>@{user.username}</Text>
-
           </View>
 
           {/* ═══ Stats Row ══════════════════════════════ */}
@@ -243,6 +280,49 @@ export default function ProfileTab() {
             ) : null}
           </View>
 
+          {/* ═══ Appearance Card ════════════════════════ */}
+          <View style={s.card}>
+            <View style={s.cardHeader}>
+              <View style={s.cardIconWrap}>
+                <Moon size={16} color={colors.purple} />
+              </View>
+              <Text style={s.cardTitle}>Appearance</Text>
+            </View>
+
+            <Text style={s.appearanceHint}>
+              Choose how MitMe looks on this device.
+            </Text>
+
+            <View style={s.appearanceRow}>
+              {appearanceOptions.map(({ value, label, Icon }) => {
+                const active = mode === value;
+                return (
+                  <Pressable
+                    key={value}
+                    onPress={() => setMode(value)}
+                    style={[
+                      s.appearanceOption,
+                      active && s.appearanceOptionActive,
+                    ]}
+                  >
+                    <Icon
+                      size={16}
+                      color={active ? '#fff' : colors.muted}
+                    />
+                    <Text
+                      style={[
+                        s.appearanceOptionText,
+                        active && s.appearanceOptionTextActive,
+                      ]}
+                    >
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
           {/* ═══ Account Card ══════════════════════════ */}
           <View style={s.card}>
             <View style={s.cardHeader}>
@@ -294,250 +374,250 @@ export default function ProfileTab() {
   );
 }
 
-/* ─── Info Row subcomponent ─────────────────────── */
-
-function InfoRow({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <View style={s.infoRow}>
-      <View style={s.infoRowLeft}>
-        {icon}
-        <Text style={s.infoRowLabel}>{label}</Text>
-      </View>
-      <Text style={s.infoRowValue} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
 /* ═══════════════════════════════════════════════════
-   STYLES
+   STYLES — built from the current theme palette
    ═══════════════════════════════════════════════════ */
 
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  content: { paddingBottom: 120 },
+const makeStyles = (colors: ThemePalette) =>
+  StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.bg },
+    content: { paddingBottom: 120 },
 
-  hero: {
-    alignItems: 'center',
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    paddingHorizontal: spacing.xl,
-    position: 'relative',
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
-  heroBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 220,
-  },
-  avatarContainer: {
-    marginTop: spacing.lg,
-    position: 'relative',
-  },
-  avatarRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 4,
-    borderColor: '#fff',
-    ...shadows.card,
-  },
-  avatarImg: { width: '100%', height: '100%' },
-  avatarFallback: {
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.purple,
-  },
-  avatarFallbackText: { color: '#fff', fontSize: 48, fontWeight: '900' },
-  cameraFab: {
-    position: 'absolute',
-    bottom: 4,
-    right: 4,
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
-  heroName: {
-    marginTop: spacing.lg,
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#fff',
-    textAlign: 'center',
-  },
-  heroHandle: {
-    marginTop: 2,
-    fontSize: 13,
-    color: '#EDE7FF',
-    fontWeight: '600',
-  },
-  heroBadges: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  heroBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+    /* Hero */
+    hero: {
+      alignItems: 'center',
+      paddingTop: spacing.lg,
+      paddingBottom: spacing.xl,
+      paddingHorizontal: spacing.xl,
+      position: 'relative',
+      overflow: 'hidden',
+      marginBottom: spacing.lg,
+    },
+    heroBg: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 220,
+    },
+    avatarContainer: {
+      marginTop: spacing.lg,
+      position: 'relative',
+    },
+    avatarRing: {
+      width: 120,
+      height: 120,
+      borderRadius: 60,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 4,
+      borderColor: colors.surface,
+    },
+    avatarImg: { width: '100%', height: '100%' },
+    avatarFallback: {
+      width: '100%',
+      height: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.purple,
+    },
+    avatarFallbackText: { color: '#fff', fontSize: 48, fontWeight: '900' },
+    cameraFab: {
+      position: 'absolute',
+      bottom: 4,
+      right: 4,
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: colors.purple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 3,
+      borderColor: colors.surface,
+    },
+    heroName: {
+      marginTop: spacing.lg,
+      fontSize: 22,
+      fontWeight: '900',
+      color: '#fff',
+      textAlign: 'center',
+    },
+    heroHandle: {
+      marginTop: 2,
+      fontSize: 13,
+      color: '#EDE7FF',
+      fontWeight: '600',
+    },
 
-  statsRow: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    marginHorizontal: spacing.xl,
-    marginTop: -30,
-    marginBottom: spacing.lg,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    ...shadows.card,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statValue: { fontSize: 15, fontWeight: '900', color: colors.ink },
-  statLabel: {
-    fontSize: 10,
-    color: colors.muted,
-    marginTop: 2,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    fontWeight: '700',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: colors.border,
-    marginVertical: 6,
-  },
+    /* Stats */
+    statsRow: {
+      flexDirection: 'row',
+      backgroundColor: colors.surface,
+      marginHorizontal: spacing.xl,
+      marginTop: -30,
+      marginBottom: spacing.lg,
+      borderRadius: radii.md,
+      paddingVertical: spacing.md,
+    },
+    statItem: { flex: 1, alignItems: 'center' },
+    statValue: { fontSize: 15, fontWeight: '900', color: colors.ink },
+    statLabel: {
+      fontSize: 10,
+      color: colors.muted,
+      marginTop: 2,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+      fontWeight: '700',
+    },
+    statDivider: {
+      width: 1,
+      backgroundColor: colors.border,
+      marginVertical: 6,
+    },
 
-  card: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginHorizontal: spacing.xl,
-    marginBottom: spacing.lg,
-    ...shadows.card,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: spacing.lg,
-  },
-  cardIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: '#F0EBFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
+    /* Card */
+    card: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.lg,
+      padding: spacing.lg,
+      marginHorizontal: spacing.xl,
+      marginBottom: spacing.lg,
+    },
+    cardHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      marginBottom: spacing.lg,
+    },
+    cardIconWrap: {
+      width: 32,
+      height: 32,
+      borderRadius: 10,
+      backgroundColor: colors.purpleSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    cardTitle: { fontSize: 15, fontWeight: '900', color: colors.ink },
 
-  label: {
-    fontSize: font.sm,
-    fontWeight: '700',
-    color: colors.ink,
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: font.md,
-    color: colors.ink,
-  },
-  textarea: { minHeight: 90, textAlignVertical: 'top' },
-  bioCounter: { alignItems: 'flex-end', marginTop: 4 },
-  bioCounterText: { fontSize: 10, color: colors.muted },
+    /* Form */
+    label: {
+      fontSize: font.sm,
+      fontWeight: '700',
+      color: colors.ink,
+      marginBottom: 6,
+    },
+    input: {
+      backgroundColor: colors.bg,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radii.md,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      fontSize: font.md,
+      color: colors.ink,
+    },
+    textarea: { minHeight: 90, textAlignVertical: 'top' },
+    bioCounter: { alignItems: 'flex-end', marginTop: 4 },
+    bioCounterText: { fontSize: 10, color: colors.muted },
 
-  saveBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: colors.purple,
-    paddingVertical: spacing.md + 2,
-    borderRadius: radii.md,
-    marginTop: spacing.lg,
-    ...shadows.card,
-  },
-  saveBtnText: { color: '#fff', fontWeight: '800', fontSize: font.md },
+    saveBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      backgroundColor: colors.purple,
+      paddingVertical: spacing.md + 2,
+      borderRadius: radii.md,
+      marginTop: spacing.lg,
+    },
+    saveBtnText: { color: '#fff', fontWeight: '800', fontSize: font.md },
 
-  removeAvatarBtn: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    marginTop: spacing.sm,
-  },
-  removeAvatarText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
+    removeAvatarBtn: {
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      marginTop: spacing.sm,
+    },
+    removeAvatarText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
 
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eeeaf5',
-  },
-  infoRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoRowLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
-  infoRowValue: {
-    color: colors.ink,
-    fontWeight: '700',
-    fontSize: 13,
-    maxWidth: '55%',
-    textAlign: 'right',
-  },
+    /* Appearance */
+    appearanceHint: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: spacing.md,
+      marginTop: -4,
+    },
+    appearanceRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+    },
+    appearanceOption: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: spacing.md,
+      borderRadius: radii.md,
+      borderWidth: 1.5,
+      borderColor: colors.border,
+      backgroundColor: colors.bg,
+    },
+    appearanceOptionActive: {
+      borderColor: colors.purple,
+      backgroundColor: colors.purple,
+    },
+    appearanceOptionText: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.muted,
+    },
+    appearanceOptionTextActive: {
+      color: '#fff',
+    },
 
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1.5,
-    borderColor: colors.danger,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.sm,
-  },
-  logoutBtnText: { color: colors.danger, fontWeight: '800', fontSize: font.md },
+    /* Info rows */
+    infoRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    infoRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    infoRowLabel: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+    infoRowValue: {
+      color: colors.ink,
+      fontWeight: '700',
+      fontSize: 13,
+      maxWidth: '55%',
+      textAlign: 'right',
+    },
 
-  version: {
-    textAlign: 'center',
-    color: colors.muted,
-    fontSize: 11,
-    marginTop: spacing.lg,
-    marginBottom: spacing.md,
-  },
-});
+    /* Logout */
+    logoutBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      borderWidth: 1.5,
+      borderColor: colors.danger,
+      borderRadius: radii.md,
+      paddingVertical: spacing.md,
+      marginHorizontal: spacing.xl,
+      marginTop: spacing.sm,
+    },
+    logoutBtnText: { color: colors.danger, fontWeight: '800', fontSize: font.md },
+
+    version: {
+      textAlign: 'center',
+      color: colors.muted,
+      fontSize: 11,
+      marginTop: spacing.lg,
+      marginBottom: spacing.md,
+    },
+  });
