@@ -1,9 +1,12 @@
 ﻿import Class from '../models/Class.js';
+import School from '../models/School.js';
 import Meeting from '../models/Meeting.js';
 import MeetingParticipant from '../models/MeetingParticipant.js';
 import Whiteboard from '../models/Whiteboard.js';
+import Conversation from '../models/Conversation.js';
 import { asyncHandler } from '../middleware/error.js';
 import { generateClassCode } from '../utils/classCode.js';
+import { generateClassJoinCode } from '../utils/classJoinCode.js';
 import { createMeetingCode } from '../utils/meeting.js';
 
 const toId = (v) => String(v?._id || v || '');
@@ -11,20 +14,26 @@ const toId = (v) => String(v?._id || v || '');
 const isAdmin = (user) =>
   String(user?.role || '').toLowerCase() === 'admin';
 
-/** True if the user created this class (owner). */
 const isOwner = (classDoc, user) => {
   if (!classDoc || !user) return false;
   return toId(classDoc.teacher) === toId(user._id);
 };
 
-/** True if the user has joined this class (member of `students`). */
 const isEnrolled = (classDoc, user) => {
   if (!classDoc || !user) return false;
   const list = Array.isArray(classDoc.students) ? classDoc.students : [];
   return list.some((s) => toId(s) === toId(user._id));
 };
 
-/** Owner, enrolled member, or admin — can view the class. */
+const isPending = (classDoc, user) => {
+  if (!classDoc || !user) return false;
+  const list = Array.isArray(classDoc.pendingRequests) ? classDoc.pendingRequests : [];
+  return list.some((r) => toId(r.user) === toId(user._id));
+};
+
+const isSchoolOwner = (school, user) =>
+  !!school && !!user && toId(school.owner) === toId(user._id);
+
 const canView = (classDoc, user) => {
   if (!classDoc || !user) return false;
   if (isAdmin(user)) return true;
@@ -33,7 +42,6 @@ const canView = (classDoc, user) => {
   return false;
 };
 
-/** Owner or admin — can manage/start/end/delete the class. */
 const canManage = (classDoc, user) => {
   if (!classDoc || !user) return false;
   if (isAdmin(user)) return true;
@@ -49,43 +57,75 @@ const newMeetingCode = async () => {
   throw new Error('Could not allocate a unique meeting code');
 };
 
+const ensureClassConversation = async (classDoc) => {
+  let convo = await Conversation.findOne({ classId: classDoc._id });
+  if (convo) return convo;
+
+  convo = await Conversation.create({
+    type: 'class',
+    title: classDoc.name,
+    classId: classDoc._id,
+    schoolId: classDoc.schoolId || null,
+    members: [classDoc.teacher, ...(classDoc.students || [])],
+    admins: [classDoc.teacher],
+    createdBy: classDoc.teacher,
+  });
+  return convo;
+};
+
 /* =========================================================
    CLASS CRUD
    ========================================================= */
 
 /**
  * Create a class.
- * Any authenticated user can create one — they become the owner.
+ * - If `schoolId` is provided → the user must be that school's owner.
+ * - Otherwise → personal class (backward compatible).
  */
 export const createClass = asyncHandler(async (req, res) => {
-  const { name, description, subject, coverColor } = req.body;
+  const { name, description, subject, coverColor, schoolId } = req.body;
 
   if (!name || !String(name).trim()) {
     return res.status(400).json({ message: 'Class name is required' });
   }
 
-  const code = await generateClassCode();
+  // If scoped to a school, verify ownership
+  if (schoolId) {
+    const school = await School.findById(schoolId);
+    if (!school) {
+      return res.status(404).json({ message: 'School not found' });
+    }
+    if (!isSchoolOwner(school, req.user)) {
+      return res
+        .status(403)
+        .json({ message: 'Only the school owner can create classes here' });
+    }
+  }
+
+  const internalCode = await generateClassCode();
+  const joinCode = await generateClassJoinCode();
 
   const classDoc = await Class.create({
     name: String(name).trim(),
     description: description ? String(description).trim() : '',
     subject: subject ? String(subject).trim() : '',
-    code,
+    code: internalCode,
+    joinCode,
+    schoolId: schoolId || null,
     teacher: req.user._id,
     students: [],
+    pendingRequests: [],
     coverColor: coverColor || '#4B24A8',
   });
+
+  // Every class gets a chat room
+  await ensureClassConversation(classDoc);
 
   await classDoc.populate('teacher', 'displayName username avatarUrl role');
 
   return res.status(201).json({ success: true, data: { class: classDoc } });
 });
 
-/**
- * List classes for the current user.
- * - Admin sees all.
- * - Everyone else sees classes they own + classes they've joined.
- */
 export const listClasses = asyncHandler(async (req, res) => {
   let query;
 
@@ -94,10 +134,7 @@ export const listClasses = asyncHandler(async (req, res) => {
   } else {
     query = {
       isArchived: false,
-      $or: [
-        { teacher: req.user._id },
-        { students: req.user._id },
-      ],
+      $or: [{ teacher: req.user._id }, { students: req.user._id }],
     };
   }
 
@@ -106,7 +143,6 @@ export const listClasses = asyncHandler(async (req, res) => {
     .populate('teacher', 'displayName username avatarUrl role')
     .lean();
 
-  // Attach live meeting flag + isOwner flag
   const classIds = classes.map((c) => c._id);
   const liveMeetings = await Meeting.find({
     classId: { $in: classIds },
@@ -123,19 +159,18 @@ export const listClasses = asyncHandler(async (req, res) => {
     activeMeetingCode: liveMap[String(c._id)] || null,
     isLive: Boolean(liveMap[String(c._id)]),
     isOwner: toId(c.teacher) === toId(req.user._id),
+    memberCount: Array.isArray(c.students) ? c.students.length : 0,
+    pendingCount: Array.isArray(c.pendingRequests) ? c.pendingRequests.length : 0,
   }));
 
   return res.json({ success: true, data: { classes: withLive } });
 });
 
-/**
- * Class detail.
- * Visible to owner, enrolled members, and admins.
- */
 export const getClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id)
     .populate('teacher', 'displayName username avatarUrl role')
-    .populate('students', 'displayName username avatarUrl role email');
+    .populate('students', 'displayName username avatarUrl role email')
+    .populate('pendingRequests.user', 'displayName username avatarUrl');
 
   if (!classDoc) {
     return res.status(404).json({ message: 'Class not found' });
@@ -148,9 +183,15 @@ export const getClass = asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { class: classDoc } });
 });
 
+/* =========================================================
+   JOIN FLOW
+   ========================================================= */
+
 /**
- * Join a class by code.
- * Any authenticated user can join — except the owner.
+ * Join a class by join code.
+ *
+ * - School class → adds a pending request; emits socket to owner.
+ * - Personal class → instant enrollment (legacy behaviour).
  */
 export const joinClass = asyncHandler(async (req, res) => {
   const rawCode = String(req.body?.code || '').trim().toUpperCase();
@@ -163,8 +204,8 @@ export const joinClass = asyncHandler(async (req, res) => {
     : rawCode.slice(0, 3) + '-' + rawCode.slice(3);
 
   const classDoc = await Class.findOne({
-    code: normalized,
     isArchived: false,
+    $or: [{ joinCode: normalized }, { code: normalized }],
   }).populate('teacher', 'displayName username avatarUrl role');
 
   if (!classDoc) {
@@ -179,26 +220,183 @@ export const joinClass = asyncHandler(async (req, res) => {
     return res.status(409).json({ message: 'You are already in this class' });
   }
 
+  /* ─── School class → request-to-join ──────────────── */
+
+  if (classDoc.schoolId) {
+    if (isPending(classDoc, req.user)) {
+      return res.status(409).json({ message: 'Your request is already pending' });
+    }
+
+    const message = String(req.body?.message || '').slice(0, 200);
+
+    classDoc.pendingRequests.push({
+      user: req.user._id,
+      requestedAt: new Date(),
+      message,
+    });
+    await classDoc.save();
+
+    // Notify school owner
+    const school = await School.findById(classDoc.schoolId);
+    const io = req.app.get('io');
+    if (io && school) {
+      io.to(`user:${school.owner}`).emit('class:join-request', {
+        schoolId: String(school._id),
+        schoolName: school.name,
+        classId: String(classDoc._id),
+        className: classDoc.name,
+        classCode: classDoc.joinCode,
+        user: {
+          _id: String(req.user._id),
+          displayName: req.user.displayName,
+          username: req.user.username,
+          avatarUrl: req.user.avatarUrl || '',
+        },
+        requestedAt: new Date().toISOString(),
+      });
+    }
+
+    await classDoc.populate('teacher', 'displayName username avatarUrl role');
+
+    return res.json({
+      success: true,
+      status: 'pending',
+      message: 'Request sent. Waiting for approval.',
+      data: { class: classDoc },
+    });
+  }
+
+  /* ─── Personal class → instant join (legacy) ──────── */
+
   classDoc.students.push(req.user._id);
   await classDoc.save();
+
+  // Add to class chat
+  await Conversation.updateOne(
+    { classId: classDoc._id },
+    { $addToSet: { members: req.user._id } }
+  );
+
   await classDoc.populate('teacher', 'displayName username avatarUrl role');
 
   return res.json({
     success: true,
+    status: 'joined',
     message: 'Joined class successfully',
     data: { class: classDoc },
   });
 });
 
 /**
- * Leave a class.
- * The owner cannot leave their own class — they archive it instead.
+ * Cancel my pending request.
  */
+export const cancelJoinRequest = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
+
+  const before = classDoc.pendingRequests.length;
+  classDoc.pendingRequests = classDoc.pendingRequests.filter(
+    (r) => toId(r.user) !== toId(req.user._id)
+  );
+
+  if (classDoc.pendingRequests.length === before) {
+    return res.status(404).json({ message: 'No pending request found' });
+  }
+
+  await classDoc.save();
+  return res.json({ success: true, message: 'Request cancelled' });
+});
+
+/**
+ * Approve a pending request (owner of the class OR school owner).
+ */
+export const approveJoinRequest = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
+
+  // Authorize: class owner OR school owner
+  let allowed = isOwner(classDoc, req.user) || isAdmin(req.user);
+  if (!allowed && classDoc.schoolId) {
+    const school = await School.findById(classDoc.schoolId);
+    allowed = isSchoolOwner(school, req.user);
+  }
+  if (!allowed) {
+    return res.status(403).json({ message: 'You cannot approve requests here' });
+  }
+
+  const request = classDoc.pendingRequests.id(req.params.requestId);
+  if (!request) {
+    return res.status(404).json({ message: 'Request not found' });
+  }
+
+  const studentId = request.user;
+  if (!classDoc.students.some((s) => toId(s) === toId(studentId))) {
+    classDoc.students.push(studentId);
+  }
+  classDoc.pendingRequests.pull(req.params.requestId);
+  await classDoc.save();
+
+  // Add to class chat
+  await Conversation.updateOne(
+    { classId: classDoc._id },
+    { $addToSet: { members: studentId } }
+  );
+
+  // Notify student
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user:${studentId}`).emit('class:approved', {
+      classId: String(classDoc._id),
+      className: classDoc.name,
+    });
+  }
+
+  return res.json({ success: true, message: 'Request approved' });
+});
+
+/**
+ * Reject a pending request.
+ */
+export const rejectJoinRequest = asyncHandler(async (req, res) => {
+  const classDoc = await Class.findById(req.params.id);
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
+
+  let allowed = isOwner(classDoc, req.user) || isAdmin(req.user);
+  if (!allowed && classDoc.schoolId) {
+    const school = await School.findById(classDoc.schoolId);
+    allowed = isSchoolOwner(school, req.user);
+  }
+  if (!allowed) {
+    return res.status(403).json({ message: 'You cannot reject requests here' });
+  }
+
+  const request = classDoc.pendingRequests.id(req.params.requestId);
+  if (!request) {
+    return res.status(404).json({ message: 'Request not found' });
+  }
+
+  const studentId = request.user;
+  classDoc.pendingRequests.pull(req.params.requestId);
+  await classDoc.save();
+
+  const io = req.app.get('io');
+  if (io) {
+    io.to(`user:${studentId}`).emit('class:rejected', {
+      classId: String(classDoc._id),
+      className: classDoc.name,
+    });
+  }
+
+  return res.json({ success: true, message: 'Request rejected' });
+});
+
+/* =========================================================
+   LEAVE / REMOVE / ARCHIVE
+   ========================================================= */
+
 export const leaveClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
 
   if (isOwner(classDoc, req.user)) {
     return res.status(400).json({
@@ -216,17 +414,18 @@ export const leaveClass = asyncHandler(async (req, res) => {
   );
   await classDoc.save();
 
+  // Remove from class chat
+  await Conversation.updateOne(
+    { classId: classDoc._id },
+    { $pull: { members: req.user._id } }
+  );
+
   return res.json({ success: true, message: 'Left class' });
 });
 
-/**
- * Remove a member from a class (owner or admin only).
- */
 export const removeStudent = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
   if (!canManage(classDoc, req.user)) {
     return res.status(403).json({ message: 'Only the class owner can remove members' });
   }
@@ -240,17 +439,18 @@ export const removeStudent = asyncHandler(async (req, res) => {
   }
 
   await classDoc.save();
+
+  await Conversation.updateOne(
+    { classId: classDoc._id },
+    { $pull: { members: targetId } }
+  );
+
   return res.json({ success: true, message: 'Member removed' });
 });
 
-/**
- * Archive a class (owner or admin only).
- */
 export const archiveClass = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
   if (!canManage(classDoc, req.user)) {
     return res.status(403).json({ message: 'You cannot archive this class' });
   }
@@ -266,21 +466,15 @@ export const archiveClass = asyncHandler(async (req, res) => {
    LIVE CLASS SESSIONS
    ========================================================= */
 
-/**
- * Start a live session for the class (owner or admin only).
- */
 export const startClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
   if (!canManage(classDoc, req.user)) {
     return res.status(403).json({
       message: 'Only the class owner can start a live session',
     });
   }
 
-  // End any stale live meetings for this class
   await Meeting.updateMany(
     { classId: classDoc._id, status: 'live' },
     { status: 'ended' }
@@ -320,14 +514,9 @@ export const startClassMeeting = asyncHandler(async (req, res) => {
   return res.status(201).json({ success: true, data: { meeting } });
 });
 
-/**
- * Get the active live meeting for a class.
- */
 export const getActiveClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
   if (!canView(classDoc, req.user)) {
     return res.status(403).json({ message: 'You do not have access to this class' });
   }
@@ -342,14 +531,9 @@ export const getActiveClassMeeting = asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { meeting: meeting || null } });
 });
 
-/**
- * End the live session (owner or admin only).
- */
 export const endClassMeeting = asyncHandler(async (req, res) => {
   const classDoc = await Class.findById(req.params.id);
-  if (!classDoc) {
-    return res.status(404).json({ message: 'Class not found' });
-  }
+  if (!classDoc) return res.status(404).json({ message: 'Class not found' });
   if (!canManage(classDoc, req.user)) {
     return res.status(403).json({ message: 'Only the class owner can end the session' });
   }

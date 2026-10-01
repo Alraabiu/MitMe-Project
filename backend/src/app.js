@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -17,6 +17,7 @@ import whiteboardRoutes from './routes/whiteboards.js';
 import notificationRoutes from './routes/notifications.js';
 import adminRoutes from './routes/admin.js';
 import classRoutes from './routes/classes.js';
+import schoolRoutes from './routes/schools.js';
 import joinRoutes from './routes/join.js';
 
 export const buildApp = () => {
@@ -55,6 +56,7 @@ export const buildApp = () => {
   app.use(`${env.API_PREFIX}/notifications`, notificationRoutes);
   app.use(`${env.API_PREFIX}/admin`, adminRoutes);
   app.use(`${env.API_PREFIX}/classes`, classRoutes);
+  app.use(`${env.API_PREFIX}/schools`, schoolRoutes);
 
   app.use('/join', joinRoutes);
 
