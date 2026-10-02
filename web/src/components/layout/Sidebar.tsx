@@ -16,8 +16,8 @@ import type { User } from '../../types';
 
 export type NavId =
   | 'home'
+  | 'education'
   | 'messages'
-  | 'classes'
   | 'meetings'
   | 'contacts'
   | 'settings'
@@ -40,8 +40,8 @@ const NAV: {
   Icon: React.ComponentType<{ size?: number }>;
 }[] = [
   { id: 'home', label: 'Dashboard', Icon: LayoutDashboard },
+  { id: 'education', label: 'Education', Icon: GraduationCap },
   { id: 'messages', label: 'Messages', Icon: MessageCircle },
-  { id: 'classes', label: 'Classes', Icon: GraduationCap },
   { id: 'meetings', label: 'Meetings', Icon: CalendarDays },
   { id: 'contacts', label: 'Contacts', Icon: Users },
   { id: 'settings', label: 'Settings', Icon: Settings },

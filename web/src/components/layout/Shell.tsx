@@ -13,7 +13,7 @@ import { MessagesPage } from '../messages/MessagesPage';
 import { ContactsPage } from '../contacts/ContactsPage';
 import { SettingsPage } from '../settings/SettingsPage';
 import { AdminPage } from '../admin/AdminPage';
-import { ClassesPage } from '../classes/ClassesPage';
+import { EducationPage } from '../education/EducationPage';
 
 interface ShellProps {
   user: User;
@@ -98,8 +98,8 @@ export function Shell({ user, setUser, isOnline = true }: ShellProps) {
         {page === 'home' && (
           <DashboardPage user={user} onOpenMeeting={setActiveMeeting} />
         )}
-        {page === 'classes' && (
-          <ClassesPage user={user} onOpenMeeting={setActiveMeeting} />
+        {page === 'education' && (
+          <EducationPage user={user} onOpenMeeting={setActiveMeeting} />
         )}
         {page === 'meetings' && (
           <MeetingsPage onOpenMeeting={setActiveMeeting} />

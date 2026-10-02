@@ -1,4 +1,8 @@
-﻿export interface User {
+﻿/* =========================================================
+   USER
+   ========================================================= */
+
+export interface User {
   _id: string;
   displayName: string;
   username: string;
@@ -11,6 +15,10 @@
   role?: string;
   lastSeen?: string;
 }
+
+/* =========================================================
+   MEETING
+   ========================================================= */
 
 export interface Meeting {
   _id: string;
@@ -29,13 +37,23 @@ export interface Meeting {
   classId?: string | null;
 }
 
+/* =========================================================
+   CONVERSATION
+   ========================================================= */
+
 export interface Conversation {
   _id: string;
-  type: 'direct' | 'group';
+  type: 'direct' | 'group' | 'class';
   title?: string;
   members: User[];
   lastMessageAt?: string;
+  classId?: string | null;
+  schoolId?: string | null;
 }
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
 
 export interface Message {
   _id: string;
@@ -44,6 +62,10 @@ export interface Message {
   text?: string;
   createdAt?: string;
 }
+
+/* =========================================================
+   WHITEBOARD
+   ========================================================= */
 
 export interface WhiteboardEvent {
   type: string;
@@ -66,10 +88,53 @@ export interface Whiteboard {
   editingMode?: 'everyone' | 'restricted';
 }
 
+/* =========================================================
+   AUTH
+   ========================================================= */
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;
   user: User;
+}
+
+/* =========================================================
+   SCHOOL
+   ========================================================= */
+
+export interface SchoolOwner {
+  _id: string;
+  displayName: string;
+  username: string;
+  avatarUrl?: string;
+}
+
+export interface School {
+  _id: string;
+  name: string;
+  description?: string;
+  code: string;
+  owner: SchoolOwner | string;
+  coverColor?: string;
+  isArchived?: boolean;
+  classCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SchoolResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    school: School;
+  };
+}
+
+export interface SchoolListResponse {
+  success: boolean;
+  data: {
+    schools: School[];
+  };
 }
 
 /* =========================================================
@@ -93,19 +158,81 @@ export interface ClassStudent {
   role?: string;
 }
 
+export interface PendingRequest {
+  _id: string;
+  user: ClassStudent | string;
+  requestedAt: string;
+  message?: string;
+}
+
 export interface ClassItem {
   _id: string;
   name: string;
   description?: string;
   subject?: string;
   code: string;
+  joinCode?: string;
+  schoolId?: string | null;
   teacher: ClassTeacher;
   students: (ClassStudent | string)[];
-  coverColor?: string;
-  isArchived?: boolean;
+  pendingRequests?: PendingRequest[];
+  pendingCount?: number;
+  memberCount?: number;
+  messageCount?: number;
   isLive?: boolean;
   isOwner?: boolean;
   activeMeetingCode?: string | null;
+  coverColor?: string;
+  isArchived?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ClassResponse {
+  success: boolean;
+  message?: string;
+  status?: 'pending' | 'joined';
+  data: {
+    class: ClassItem;
+  };
+}
+
+export interface ClassListResponse {
+  success: boolean;
+  data: {
+    classes: ClassItem[];
+  };
+}
+
+/* =========================================================
+   SCHOOL DETAIL (school + its classes)
+   ========================================================= */
+
+export interface SchoolDetailResponse {
+  success: boolean;
+  data: {
+    school: School;
+    classes: ClassItem[];
+  };
+}
+
+/* =========================================================
+   PENDING JOIN REQUEST (school-wide view)
+   ========================================================= */
+
+export interface SchoolJoinRequest {
+  classId: string;
+  className: string;
+  classCode: string;
+  user: ClassStudent;
+  requestedAt: string;
+  message?: string;
+  requestId: string;
+}
+
+export interface SchoolRequestsResponse {
+  success: boolean;
+  data: {
+    requests: SchoolJoinRequest[];
+  };
 }
