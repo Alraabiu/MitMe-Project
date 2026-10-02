@@ -15,7 +15,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import {
   GraduationCap,
   Plus,
-  Hash,
   School as SchoolIcon,
   ChevronRight,
   Users,
@@ -29,7 +28,6 @@ import type { School } from '../../src/types';
 type IconProps = { color?: string; size?: number };
 const IconSchool = SchoolIcon as unknown as React.ComponentType<IconProps>;
 const IconPlus = Plus as unknown as React.ComponentType<IconProps>;
-const IconHash = Hash as unknown as React.ComponentType<IconProps>;
 const IconChevron = ChevronRight as unknown as React.ComponentType<IconProps>;
 const IconUsers = Users as unknown as React.ComponentType<IconProps>;
 const IconGraduation = GraduationCap as unknown as React.ComponentType<IconProps>;
@@ -103,42 +101,29 @@ export default function EducationScreen() {
           <View>
             <Text style={s.title}>Education</Text>
             <Text style={s.sub}>
-              Create a school or join a class with a code
+              Create and manage your schools
             </Text>
           </View>
         </View>
 
-        {/* Actions */}
-        <View style={s.actionsRow}>
-          <Pressable
-            onPress={() => router.push('/schools/create')}
-            style={({ pressed }) => [
-              s.actionBtn,
-              pressed && { opacity: 0.9 },
-            ]}
+        {/* Create school CTA */}
+        <Pressable
+          onPress={() => router.push('/schools/create')}
+          style={({ pressed }) => [
+            s.actionBtn,
+            pressed && { opacity: 0.9 },
+          ]}
+        >
+          <LinearGradient
+            colors={[colors.purple, colors.blue]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.actionInner}
           >
-            <LinearGradient
-              colors={[colors.purple, colors.blue]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={s.actionInner}
-            >
-              <IconPlus color="#fff" size={18} />
-              <Text style={s.actionText}>Create School</Text>
-            </LinearGradient>
-          </Pressable>
-
-          <Pressable
-            onPress={() => router.push('/classes/join')}
-            style={({ pressed }) => [
-              s.actionBtnSecondary,
-              pressed && { opacity: 0.9 },
-            ]}
-          >
-            <IconHash color={colors.purple} size={18} />
-            <Text style={s.actionTextSecondary}>Join Class</Text>
-          </Pressable>
-        </View>
+            <IconPlus color="#fff" size={18} />
+            <Text style={s.actionText}>Create School</Text>
+          </LinearGradient>
+        </Pressable>
 
         {/* Empty state */}
         {schools.length === 0 && (
@@ -184,10 +169,7 @@ export default function EducationScreen() {
                   <View style={s.cardBody}>
                     <View style={s.cardTitleRow}>
                       <View style={s.cardIconWrap}>
-                        <IconSchool
-                          color={colors.purple}
-                          size={18}
-                        />
+                        <IconSchool color={colors.purple} size={18} />
                       </View>
                       <Text style={s.cardTitle} numberOfLines={1}>
                         {sc.name}
@@ -255,46 +237,19 @@ const makeStyles = (colors: ThemePalette) =>
     },
     sub: { marginTop: 4, fontSize: 13, color: colors.muted },
 
-    /* Actions row */
-    actionsRow: {
-      flexDirection: 'row',
-      gap: spacing.sm,
-      marginBottom: spacing.lg,
-    },
     actionBtn: {
-      flex: 1,
       borderRadius: radii.md,
       overflow: 'hidden',
+      marginBottom: spacing.lg,
     },
     actionInner: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 6,
+      gap: 8,
       paddingVertical: spacing.md,
     },
-    actionText: {
-      color: '#fff',
-      fontWeight: '800',
-      fontSize: 13,
-    },
-    actionBtnSecondary: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: spacing.md,
-      borderRadius: radii.md,
-      borderWidth: 1.5,
-      borderColor: colors.purple,
-      backgroundColor: colors.surface,
-    },
-    actionTextSecondary: {
-      color: colors.purple,
-      fontWeight: '800',
-      fontSize: 13,
-    },
+    actionText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
     /* Tip card */
     tipCard: {

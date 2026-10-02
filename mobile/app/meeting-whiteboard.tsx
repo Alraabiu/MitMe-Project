@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
@@ -32,9 +32,17 @@ export default function WhiteboardScreen() {
   const [pageId, setPageId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
 
+  /* Canvas dimensions — required because <Svg> needs explicit size on Android */
+  const [canvasSize, setCanvasSize] = useState({ w: 0, h: 0 });
+
+  /* Refs for throttled drawing — keeps the UI at ~60fps */
+  const currentPointsRef = useRef<{ x: number; y: number }[]>([]);
+  const rafRef = useRef<number | null>(null);
+  const isDrawingRef = useRef(false);
+
   const isTeacher = user?.role === 'teacher' || user?.role === 'admin';
 
-  // ─── Load whiteboard ──────────────────────────────────
+  /* ─── Load whiteboard ─────────────────────────────── */
   useEffect(() => {
     if (!meetingId) return;
     api
@@ -61,7 +69,7 @@ export default function WhiteboardScreen() {
       .finally(() => setLoading(false));
   }, [meetingId]);
 
-  // ─── Realtime sync ────────────────────────────────────
+  /* ─── Realtime sync ───────────────────────────────── */
   useEffect(() => {
     if (!socket || !meetingId) return;
 
@@ -83,7 +91,7 @@ export default function WhiteboardScreen() {
     };
   }, [socket, meetingId]);
 
-  // ─── Notify others when we leave ──────────────────────
+  /* ─── Notify others when we leave ─────────────────── */
   useEffect(() => {
     return () => {
       if (!socket || !meetingId) return;
@@ -95,6 +103,7 @@ export default function WhiteboardScreen() {
     };
   }, [socket, meetingId]);
 
+  /* ─── Persist stroke ──────────────────────────────── */
   const saveStroke = async (points: { x: number; y: number }[]) => {
     if (!meetingId || points.length < 2) return;
     try {
@@ -108,6 +117,50 @@ export default function WhiteboardScreen() {
     }
   };
 
+  /* ─── Drawing handlers (throttled via requestAnimationFrame) ─ */
+
+  const flushFrame = () => {
+    rafRef.current = null;
+    if (!isDrawingRef.current) return;
+    setCurrentStroke({ points: [...currentPointsRef.current] });
+  };
+
+  const scheduleFrame = () => {
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(flushFrame);
+  };
+
+  const handleGrant = (locationX: number, locationY: number) => {
+    isDrawingRef.current = true;
+    currentPointsRef.current = [{ x: locationX, y: locationY }];
+    setCurrentStroke({ points: [{ x: locationX, y: locationY }] });
+  };
+
+  const handleMove = (locationX: number, locationY: number) => {
+    if (!isDrawingRef.current) return;
+    currentPointsRef.current.push({ x: locationX, y: locationY });
+    scheduleFrame();
+  };
+
+  const handleRelease = async () => {
+    isDrawingRef.current = false;
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const points = currentPointsRef.current;
+    currentPointsRef.current = [];
+    if (points.length < 2) {
+      setCurrentStroke(null);
+      return;
+    }
+    const finished: Stroke = { points };
+    setStrokes((prev) => [...prev, finished]);
+    setCurrentStroke(null);
+    await saveStroke(points);
+  };
+
+  /* ─── Clear board ─────────────────────────────────── */
   const clearBoard = useCallback(async () => {
     if (!meetingId || clearing) return;
     if (!isTeacher) {
@@ -129,6 +182,7 @@ export default function WhiteboardScreen() {
               // Wipe locally
               setStrokes([]);
               setCurrentStroke(null);
+              currentPointsRef.current = [];
 
               // Persist
               await api.post(`/whiteboards/${meetingId}/events`, {
@@ -201,59 +255,59 @@ export default function WhiteboardScreen() {
       {/* Canvas */}
       <View
         style={s.canvasWrap}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          setCanvasSize({ w: width, h: height });
+        }}
         onStartShouldSetResponder={() => true}
         onMoveShouldSetResponder={() => true}
+        onStartShouldSetResponderCapture={() => true}
+        onMoveShouldSetResponderCapture={() => true}
+        onResponderTerminationRequest={() => false}
         onResponderGrant={(e) => {
           const { locationX, locationY } = e.nativeEvent;
-          setCurrentStroke({ points: [{ x: locationX, y: locationY }] });
+          handleGrant(locationX, locationY);
         }}
         onResponderMove={(e) => {
-          if (!currentStroke) return;
           const { locationX, locationY } = e.nativeEvent;
-          setCurrentStroke({
-            points: [
-              ...currentStroke.points,
-              { x: locationX, y: locationY },
-            ],
-          });
+          handleMove(locationX, locationY);
         }}
-        onResponderRelease={async () => {
-          if (!currentStroke || currentStroke.points.length < 2) {
-            setCurrentStroke(null);
-            return;
-          }
-          const finished = currentStroke;
-          setStrokes((prev) => [...prev, finished]);
-          setCurrentStroke(null);
-          await saveStroke(finished.points);
-        }}
+        onResponderRelease={handleRelease}
+        onResponderTerminate={handleRelease}
       >
-        <Svg style={s.svg}>
-          {strokes.map((stroke, i) => (
-            <Path
-              key={i}
-              d={toPath(stroke.points)}
-              stroke={colors.ink}
-              strokeWidth={3}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ))}
-          {currentStroke && (
-            <Path
-              d={toPath(currentStroke.points)}
-              stroke={colors.purple}
-              strokeWidth={3}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          )}
-        </Svg>
+        {canvasSize.w > 0 && canvasSize.h > 0 && (
+          <Svg
+            width={canvasSize.w}
+            height={canvasSize.h}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          >
+            {strokes.map((stroke, i) => (
+              <Path
+                key={i}
+                d={toPath(stroke.points)}
+                stroke={colors.ink}
+                strokeWidth={3}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            ))}
+            {currentStroke && (
+              <Path
+                d={toPath(currentStroke.points)}
+                stroke={colors.purple}
+                strokeWidth={3}
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+          </Svg>
+        )}
 
         {strokes.length === 0 && !currentStroke && (
-          <View style={s.hint}>
+          <View style={s.hint} pointerEvents="none">
             <Text style={s.hintText}>Draw with your finger</Text>
             <Text style={s.hintSub}>
               Strokes sync to everyone in the meeting
@@ -263,8 +317,8 @@ export default function WhiteboardScreen() {
       </View>
 
       <Text style={s.footer}>
-        {strokes.length} {strokes.length === 1 ? 'stroke' : 'strokes'} ·
-        shared with the meeting
+        {strokes.length} {strokes.length === 1 ? 'stroke' : 'strokes'} · shared
+        with the meeting
       </Text>
     </SafeAreaView>
   );
@@ -311,13 +365,6 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     ...shadows.card,
-  },
-  svg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
   },
   hint: {
     position: 'absolute',

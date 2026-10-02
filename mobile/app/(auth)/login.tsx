@@ -99,7 +99,7 @@ export default function LoginScreen() {
 
           <Text style={s.h1}>Welcome back</Text>
           <Text style={s.sub}>
-            Sign in to continue your meetings, chats and classes.
+            Sign in to continue your meetings, chats and School.
           </Text>
 
           {/* Identifier */}

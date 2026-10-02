@@ -27,7 +27,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "MitMe uses your camera for video meetings."
+          "cameraPermission": "MitMe uses your camera for video meetings.",
+          "microphonePermission": "MitMe uses your microphone for meetings and voice chat.",
+          "recordAudioAndroid": true
         }
       ],
       [
@@ -50,8 +52,8 @@
           }
         }
       ],
-
-      "@livekit/react-native-expo-plugin"
+      "@livekit/react-native-expo-plugin",
+      "@react-native-community/datetimepicker"
     ],
     "ios": {
       "supportsTablet": true,
@@ -79,6 +81,8 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_CAMERA",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.INTERNET",

@@ -21,12 +21,18 @@ import {
   Users as UsersIcon,
   MessageSquare,
   GraduationCap,
+  BookOpen,
+  Calendar,
   Zap,
 } from 'lucide-react-native';
 import { api } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { spacing, radii, font, weights, type ThemePalette } from '../../src/theme';
+import {
+  MeetingInviteModal,
+  formatMeetingTime,
+} from '../../src/components/MeetingInviteModal';
 import type { Meeting } from '../../src/types';
 
 type IconProps = { color?: string; size?: number };
@@ -36,7 +42,8 @@ const IconChevron = ChevronRight as unknown as React.ComponentType<IconProps>;
 const IconClock = Clock as unknown as React.ComponentType<IconProps>;
 const IconUsers = UsersIcon as unknown as React.ComponentType<IconProps>;
 const IconMessage = MessageSquare as unknown as React.ComponentType<IconProps>;
-const IconClasses = GraduationCap as unknown as React.ComponentType<IconProps>;
+const IconBookOpen = BookOpen as unknown as React.ComponentType<IconProps>;
+const IconCalendar = Calendar as unknown as React.ComponentType<IconProps>;
 const IconZap = Zap as unknown as React.ComponentType<IconProps>;
 
 interface StatusStyle {
@@ -86,6 +93,7 @@ export default function HomeTab() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [inviteMeeting, setInviteMeeting] = useState<Meeting | null>(null);
 
   const s = useMemo(() => makeStyles(colors), [colors]);
   const STATUS_STYLES = useMemo(() => makeStatusStyles(colors), [colors]);
@@ -158,6 +166,19 @@ export default function HomeTab() {
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  /* Live meetings go straight into the room.
+     Scheduled meetings open the invite sheet so you can share the code first. */
+  const openMeeting = (m: Meeting) => {
+    if (m.status === 'live') {
+      router.push({
+        pathname: '/meeting',
+        params: { meetingId: m._id, title: m.title, code: m.code },
+      });
+    } else {
+      setInviteMeeting(m);
     }
   };
 
@@ -358,19 +379,12 @@ export default function HomeTab() {
               const status =
                 STATUS_STYLES[m.status] ?? STATUS_STYLES.scheduled;
               const isLast = idx === visible.length - 1;
+              const when = formatMeetingTime((m as any).startsAt);
+
               return (
                 <Pressable
                   key={m._id}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/meeting',
-                      params: {
-                        meetingId: m._id,
-                        title: m.title,
-                        code: m.code,
-                      },
-                    })
-                  }
+                  onPress={() => openMeeting(m)}
                   style={({ pressed }) => [
                     s.meetingRow,
                     !isLast && s.meetingRowDivider,
@@ -391,7 +405,7 @@ export default function HomeTab() {
                     <View style={s.meetingMetaRow}>
                       <IconClock color={colors.mutedDim} size={11} />
                       <Text style={s.meetingMeta} numberOfLines={1}>
-                        {m.code}
+                        {when ? `${when} · ${m.code}` : m.code}
                       </Text>
                     </View>
                   </View>
@@ -412,7 +426,41 @@ export default function HomeTab() {
           <Text style={s.sectionTitle}>Quick actions</Text>
         </View>
 
+        {/* Row 1: Schedule · Join Class */}
         <View style={s.shortcutRow}>
+          <Pressable
+            style={({ pressed }) => [
+              s.shortcut,
+              pressed && { backgroundColor: colors.surfaceHover },
+            ]}
+            onPress={() => router.push('/schedule')}
+          >
+            <View
+              style={[s.shortcutIcon, { backgroundColor: colors.purpleSoft }]}
+            >
+              <IconCalendar color={colors.purpleLight} size={18} />
+            </View>
+            <Text style={s.shortcutLabel}>Schedule</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              s.shortcut,
+              pressed && { backgroundColor: colors.surfaceHover },
+            ]}
+            onPress={() => router.push('/classes/join')}
+          >
+            <View
+              style={[s.shortcutIcon, { backgroundColor: colors.successSoft }]}
+            >
+              <IconBookOpen color={colors.success} size={18} />
+            </View>
+            <Text style={s.shortcutLabel}>Join Class</Text>
+          </Pressable>
+        </View>
+
+        {/* Row 2: Messages · Contacts */}
+        <View style={[s.shortcutRow, { marginTop: spacing.sm }]}>
           <Pressable
             style={({ pressed }) => [
               s.shortcut,
@@ -442,23 +490,15 @@ export default function HomeTab() {
             </View>
             <Text style={s.shortcutLabel}>Contacts</Text>
           </Pressable>
-
-          <Pressable
-            style={({ pressed }) => [
-              s.shortcut,
-              pressed && { backgroundColor: colors.surfaceHover },
-            ]}
-            onPress={() => router.push('/(tabs)/classes')}
-          >
-            <View
-              style={[s.shortcutIcon, { backgroundColor: colors.successSoft }]}
-            >
-              <IconClasses color={colors.success} size={18} />
-            </View>
-            <Text style={s.shortcutLabel}>Classes</Text>
-          </Pressable>
         </View>
       </ScrollView>
+
+      {/* Invite modal — opens for scheduled (non-live) meetings */}
+      <MeetingInviteModal
+        visible={!!inviteMeeting}
+        meeting={inviteMeeting}
+        onClose={() => setInviteMeeting(null)}
+      />
     </SafeAreaView>
   );
 }
