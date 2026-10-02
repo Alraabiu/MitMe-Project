@@ -27,10 +27,14 @@ import {
   shadows,
 } from '../../src/theme';
 import type { AuthResponse } from '../../src/types';
+import { GoogleButton } from '../../src/components/GoogleSignInButton';
+import { useGoogleAuth } from '../../src/hooks/useGoogleAuth';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { user, login } = useAuth();
+  const { signInWithGoogle, googleLoading } = useGoogleAuth();
+
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -73,6 +77,8 @@ export default function LoginScreen() {
     }
   };
 
+  const disabled = busy || googleLoading;
+
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
@@ -113,6 +119,7 @@ export default function LoginScreen() {
               onChangeText={setIdentifier}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!disabled}
             />
           </View>
 
@@ -128,11 +135,13 @@ export default function LoginScreen() {
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!disabled}
             />
             <Pressable
               style={s.eyeBtn}
               onPress={() => setShowPassword((v) => !v)}
               hitSlop={10}
+              disabled={disabled}
             >
               {showPassword ? (
                 <Eye size={20} color={colors.purpleLight} />
@@ -146,9 +155,10 @@ export default function LoginScreen() {
             style={({ pressed }) => [
               s.btnWrap,
               pressed && { opacity: 0.92 },
+              disabled && { opacity: 0.7 },
             ]}
             onPress={submit}
-            disabled={busy}
+            disabled={disabled}
           >
             <LinearGradient
               colors={gradients.brand}
@@ -164,10 +174,24 @@ export default function LoginScreen() {
             </LinearGradient>
           </Pressable>
 
+          {/* ─── Google Sign-In ───────────────────────── */}
+          <View style={s.dividerRow}>
+            <View style={s.dividerLine} />
+            <Text style={s.dividerText}>or continue with</Text>
+            <View style={s.dividerLine} />
+          </View>
+
+          <GoogleButton
+            onPress={signInWithGoogle}
+            loading={googleLoading}
+            disabled={busy}
+          />
+
+          {/* Switch to register */}
           <View style={s.switchRow}>
             <Text style={s.switchText}>New to MitMe?</Text>
             <Link href="/(auth)/register" asChild>
-              <Pressable hitSlop={8}>
+              <Pressable hitSlop={8} disabled={disabled}>
                 <Text style={s.switchLink}>Create account</Text>
               </Pressable>
             </Link>
@@ -265,6 +289,24 @@ const s = StyleSheet.create({
     fontWeight: weights.extrabold,
     fontSize: font.md,
     letterSpacing: 0.3,
+  },
+
+  /* Google / divider */
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xl,
+    marginBottom: 4,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.surfaceBorder,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: colors.muted,
+    fontSize: font.sm,
   },
 
   switchRow: {

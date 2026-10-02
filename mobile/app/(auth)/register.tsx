@@ -292,7 +292,7 @@ export default function RegisterScreen() {
             </LinearGradient>
           </Pressable>
 
-          {/* Google Sign-In — parity with login */}
+          {/* Google Sign-In */}
           <View style={s.dividerRow}>
             <View style={s.dividerLine} />
             <Text style={s.dividerText}>or continue with</Text>
