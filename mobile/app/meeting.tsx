@@ -40,6 +40,7 @@ import { useNotificationSound } from '../src/hooks/useNotificationSound';
 import { useMeetingChat } from '../src/hooks/useMeetingChat';
 import { colors, spacing, radii, font } from '../src/theme';
 import type { Socket } from 'socket.io-client';
+import type { Meeting } from '../src/types';
 
 // ─── Environment detection ──────────────────────────────────
 const isExpoGo = Constants.appOwnership === 'expo';
@@ -142,6 +143,7 @@ export default function MeetingScreen() {
   const socket = useSocket();
 
   const [media, setMedia] = useState<MediaInfo | null>(null);
+  const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [joinState, setJoinState] = useState<JoinState>('loading');
   const [permState, setPermState] = useState<PermState>('checking');
   const [error, setError] = useState('');
@@ -171,6 +173,7 @@ export default function MeetingScreen() {
         const r = await api.post<{
           status?: 'pending' | 'admitted';
           media?: MediaInfo;
+          meeting?: Meeting;
         }>(`/meetings/${meetingId}/join`);
         if (cancelled) return;
 
@@ -180,6 +183,7 @@ export default function MeetingScreen() {
           return;
         }
         setMedia(r.data.media ?? null);
+        setMeeting(r.data.meeting ?? null);
         setJoinState('admitted');
       } catch (err: any) {
         if (cancelled) return;
@@ -354,6 +358,19 @@ export default function MeetingScreen() {
   }
 
   // ─── ADMITTED + PERMISSIONS OK ──────────────────────────
+  const isUserHost = (() => {
+    if (!user) return false;
+    const role = String(user.role || '').toLowerCase();
+    if (role === 'teacher' || role === 'admin') return true;
+    if (!meeting) return false;
+    const h = meeting.host as any;
+    const hostId =
+      typeof h === 'object' && h !== null
+        ? String(h._id || '')
+        : String(h || '');
+    return hostId === String(user._id);
+  })();
+
   return (
     <SafeAreaView style={s.safe} edges={['top', 'bottom']}>
       <RNStatusBar barStyle="light-content" />
@@ -375,6 +392,7 @@ export default function MeetingScreen() {
             onLeave={handleLeave}
             socket={socket}
             userRole={user?.role}
+            isHost={isUserHost}
           />
         </LiveKitRoom>
       </View>
@@ -390,6 +408,7 @@ function MeetingUI({
   onLeave,
   socket,
   userRole,
+  isHost: isHostProp,
 }: {
   meetingId: string;
   title: string;
@@ -397,6 +416,7 @@ function MeetingUI({
   onLeave: () => void;
   socket: Socket | null;
   userRole?: string;
+  isHost?: boolean;
 }) {
   const router = useRouter();
   const { localParticipant } = useLocalParticipant();
@@ -422,10 +442,10 @@ function MeetingUI({
     markRead: markChatRead,
   } = useMeetingChat();
 
-  const isHost = useMemo(
-    () => userRole === 'teacher' || userRole === 'admin',
-    [userRole]
-  );
+  const isHost = useMemo(() => {
+    if (typeof isHostProp === 'boolean') return isHostProp;
+    return userRole === 'teacher' || userRole === 'admin';
+  }, [isHostProp, userRole]);
 
   // ─── iOS audio session ──────────────────────────────────
   useEffect(() => {
@@ -1366,7 +1386,6 @@ const s = StyleSheet.create({
   controlActive: { backgroundColor: colors.purple },
   controlEnd: { backgroundColor: colors.danger },
 
-  // Chat button badge
   chatBadge: {
     position: 'absolute',
     top: -2,
@@ -1385,7 +1404,6 @@ const s = StyleSheet.create({
     fontWeight: '800',
   },
 
-  // Chat modal
   chatBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.55)',

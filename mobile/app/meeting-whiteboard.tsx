@@ -166,6 +166,39 @@ export default function WhiteboardScreen() {
   useEffect(() => { strokesRef.current = strokes; }, [strokes]);
 
   /* ─────────────────────────────────────────────────
+     Ensure we are joined to the meeting socket room
+     ─────────────────────────────────────────────────
+     Expo Router keeps the previous screen (MeetingUI)
+     mounted in the stack when we push the whiteboard.
+     Its cleanup may fire 'meeting:leave' and drop us
+     from the room — so we re-join here on mount.
+     We deliberately DO NOT emit 'meeting:leave' on
+     unmount because MeetingUI behind us still needs it.
+     ───────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!socket || !meetingId) return;
+    console.log('[whiteboard] joining meeting room', meetingId);
+    socket.emit('meeting:join', meetingId);
+
+    // Also broadcast that we opened the whiteboard so other
+    // participants get the "Join whiteboard" banner.
+    socket.emit('meeting:state', {
+      meetingId,
+      type: 'whiteboard',
+      value: true,
+    });
+
+    return () => {
+      // Only notify that the whiteboard closed — do NOT leave the room.
+      socket.emit('meeting:state', {
+        meetingId,
+        type: 'whiteboard',
+        value: false,
+      });
+    };
+  }, [socket, meetingId]);
+
+  /* ─────────────────────────────────────────────────
      Load from server
      ───────────────────────────────────────────────── */
   useEffect(() => {
@@ -190,13 +223,13 @@ export default function WhiteboardScreen() {
           } else if (e.type === 'stroke') {
             const p = e.payload || {};
             loaded.push({
-              id: p.id || makeId(),
+              id: p.id || p.strokeId || makeId(),
               points: p.points || [],
               color: p.color || DEFAULT_COLOR,
               width: p.width || DEFAULT_WIDTH,
             });
           } else if (e.type === 'erase') {
-            const id = e.payload?.id;
+            const id = e.payload?.id || e.payload?.strokeId;
             if (id) {
               const idx = loaded.findIndex((s) => s.id === id);
               if (idx >= 0) loaded.splice(idx, 1);
@@ -210,7 +243,7 @@ export default function WhiteboardScreen() {
   }, [meetingId]);
 
   /* ─────────────────────────────────────────────────
-     Realtime sync
+     Realtime sync — receive strokes from others
      ───────────────────────────────────────────────── */
   useEffect(() => {
     if (!socket || !meetingId) return;
@@ -228,7 +261,7 @@ export default function WhiteboardScreen() {
       if (type === 'stroke') {
         const p = payload || {};
         const incoming: Stroke = {
-          id: p.id || makeId(),
+          id: p.id || p.strokeId || makeId(),
           points: p.points || [],
           color: p.color || DEFAULT_COLOR,
           width: p.width || DEFAULT_WIDTH,
@@ -241,7 +274,7 @@ export default function WhiteboardScreen() {
       }
 
       if (type === 'erase') {
-        const id = payload?.id;
+        const id = payload?.id || payload?.strokeId;
         if (!id) return;
         setStrokes((prev) => prev.filter((s) => s.id !== id));
         return;
@@ -255,48 +288,37 @@ export default function WhiteboardScreen() {
   }, [socket, meetingId]);
 
   /* ─────────────────────────────────────────────────
-     Notify others on unmount
-     ───────────────────────────────────────────────── */
-  useEffect(() => {
-    return () => {
-      if (!socket || !meetingId) return;
-      socket.emit('meeting:state', {
-        meetingId,
-        type: 'whiteboard',
-        value: false,
-      });
-    };
-  }, [socket, meetingId]);
-
-  /* ─────────────────────────────────────────────────
      Emit helpers (socket + persistence)
      ───────────────────────────────────────────────── */
 
   const emitStroke = useCallback(
     (stroke: Stroke) => {
+      const payload = {
+        id: stroke.id,
+        strokeId: stroke.id, // alias — some listeners use this key
+        points: stroke.points,
+        color: stroke.color,
+        width: stroke.width,
+      };
+
+      console.log(
+        '[whiteboard] emit stroke',
+        stroke.id,
+        stroke.points.length,
+        'pts'
+      );
+
       socket?.emit('whiteboard:event', {
         meetingId,
         pageId: pageId || undefined,
-        event: {
-          type: 'stroke',
-          payload: {
-            id: stroke.id,
-            points: stroke.points,
-            color: stroke.color,
-            width: stroke.width,
-          },
-        },
+        event: { type: 'stroke', payload },
       });
+
       api
         .post(`/whiteboards/${meetingId}/events`, {
           pageId: pageId || undefined,
           type: 'stroke',
-          payload: {
-            id: stroke.id,
-            points: stroke.points,
-            color: stroke.color,
-            width: stroke.width,
-          },
+          payload,
         })
         .catch(() => {});
     },
@@ -305,16 +327,17 @@ export default function WhiteboardScreen() {
 
   const emitErase = useCallback(
     (strokeId: string) => {
+      const payload = { id: strokeId, strokeId };
       socket?.emit('whiteboard:event', {
         meetingId,
         pageId: pageId || undefined,
-        event: { type: 'erase', payload: { id: strokeId } },
+        event: { type: 'erase', payload },
       });
       api
         .post(`/whiteboards/${meetingId}/events`, {
           pageId: pageId || undefined,
           type: 'erase',
-          payload: { id: strokeId },
+          payload,
         })
         .catch(() => {});
     },
@@ -338,7 +361,6 @@ export default function WhiteboardScreen() {
 
   const handleGrant = (x: number, y: number) => {
     if (toolRef.current === 'eraser') {
-      // Erase immediately on tap
       const hit = strokesRef.current.find((s) =>
         strokeHitTest(s, { x, y }, 24)
       );
