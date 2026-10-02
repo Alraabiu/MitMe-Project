@@ -190,22 +190,41 @@ export const getClass = asyncHandler(async (req, res) => {
 /**
  * Join a class by join code.
  *
+ * Accepts every sensible variant of the code:
+ *   "ABC-DEF"  → stored joinCode
+ *   "ABCDEF"   → no separator
+ *   "abc def"  → lowercased, with spaces
+ *   ObjectId   → direct _id fallback
+ *
  * - School class → adds a pending request; emits socket to owner.
  * - Personal class → instant enrollment (legacy behaviour).
  */
 export const joinClass = asyncHandler(async (req, res) => {
-  const rawCode = String(req.body?.code || '').trim().toUpperCase();
-  if (!rawCode) {
+  const rawInput = String(req.body?.code || '').trim().toUpperCase();
+  if (!rawInput) {
     return res.status(400).json({ message: 'Class code is required' });
   }
 
-  const normalized = rawCode.includes('-')
-    ? rawCode
-    : rawCode.slice(0, 3) + '-' + rawCode.slice(3);
+  // Normalize into every possible variant
+  const alnumOnly = rawInput.replace(/[^A-Z0-9]/g, '');
+  const dashed =
+    alnumOnly.length >= 6
+      ? alnumOnly.slice(0, 3) + '-' + alnumOnly.slice(3, 6)
+      : alnumOnly;
+
+  const codeVariants = Array.from(
+    new Set([rawInput, alnumOnly, dashed].filter(Boolean))
+  );
+
+  const isObjectId = /^[a-f0-9]{24}$/i.test(rawInput);
 
   const classDoc = await Class.findOne({
     isArchived: false,
-    $or: [{ joinCode: normalized }, { code: normalized }],
+    $or: [
+      { joinCode: { $in: codeVariants } },
+      { code: { $in: codeVariants } },
+      ...(isObjectId ? [{ _id: rawInput }] : []),
+    ],
   }).populate('teacher', 'displayName username avatarUrl role');
 
   if (!classDoc) {
@@ -489,7 +508,7 @@ export const startClassMeeting = asyncHandler(async (req, res) => {
     code,
     classId: classDoc._id,
     status: 'live',
-    waitingRoom: false,
+    waitingRoom: true,   // ← FIX: enforce admission for live class sessions too
     whiteboardEnabled: true,
     chatEnabled: true,
     screenShareEnabled: true,
