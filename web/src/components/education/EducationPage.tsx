@@ -11,6 +11,7 @@ import { listSchools } from '../../services/schools';
 import type { Meeting, School, User } from '../../types';
 import { CreateSchoolForm } from './CreateSchoolForm';
 import { SchoolDetail } from './SchoolDetail';
+import { ClassDetail } from '../classes/ClassDetail';
 
 interface EducationPageProps {
   user: User;
@@ -20,9 +21,17 @@ interface EducationPageProps {
 type View =
   | { kind: 'list' }
   | { kind: 'create' }
-  | { kind: 'detail'; schoolId: string };
+  | { kind: 'detail'; schoolId: string }
+  | { kind: 'class'; schoolId: string; classId: string };
 
 export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
+  const handleOpenMeeting = useCallback(
+    (meeting: Meeting | null) => {
+      onOpenMeeting?.(meeting);
+    },
+    [onOpenMeeting]
+  );
+
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +69,21 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
     );
   }
 
+  if (view.kind === 'class') {
+    return (
+      <div>
+        <ClassDetail
+          classId={view.classId}
+          user={user}
+          onBack={() =>
+            setView({ kind: 'detail', schoolId: view.schoolId })
+          }
+          onOpenMeeting={handleOpenMeeting}
+        />
+      </div>
+    );
+  }
+
   if (view.kind === 'detail') {
     return (
       <SchoolDetail
@@ -69,7 +93,14 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
           setView({ kind: 'list' });
           load();
         }}
-        onOpenMeeting={onOpenMeeting}
+        onOpenMeeting={handleOpenMeeting}
+        onOpenClass={(classId) =>
+          setView({
+            kind: 'class',
+            schoolId: view.schoolId,
+            classId,
+          })
+        }
       />
     );
   }
@@ -248,7 +279,6 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
           {schools.map((sc) => {
             const owner = typeof sc.owner === 'object' ? sc.owner : null;
             const classCount = sc.classCount ?? 0;
-
             const openDetail = () =>
               setView({ kind: 'detail', schoolId: sc._id });
 
@@ -288,7 +318,6 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
                   e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                {/* Accent strip */}
                 <div
                   style={{
                     width: 6,
@@ -296,8 +325,6 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
                     flexShrink: 0,
                   }}
                 />
-
-                {/* Card body — pointer-events: none so clicks reach the parent */}
                 <div
                   style={{
                     flex: 1,

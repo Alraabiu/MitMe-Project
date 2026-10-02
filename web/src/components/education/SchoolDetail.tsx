@@ -168,7 +168,6 @@ export function SchoolDetail({
       );
       const detail = await getSchool(schoolId);
       setClasses(detail.classes);
-      // Auto-close after 1.5s
       setTimeout(() => setShowAddStudent(false), 1500);
     } catch (err: any) {
       setAddStudentError(
@@ -199,6 +198,7 @@ export function SchoolDetail({
     return (
       <div style={{ padding: 24 }}>
         <button
+          type="button"
           onClick={onBack}
           style={{
             display: 'inline-flex',
@@ -254,6 +254,7 @@ export function SchoolDetail({
         }}
       >
         <button
+          type="button"
           onClick={onBack}
           style={{
             display: 'inline-flex',
@@ -273,6 +274,7 @@ export function SchoolDetail({
         </button>
 
         <button
+          type="button"
           onClick={onRefresh}
           disabled={refreshing}
           style={{
@@ -380,8 +382,8 @@ export function SchoolDetail({
         </div>
       </div>
 
-      {/* Pending requests */}
-      {requests.length > 0 && (
+      {/* Pending requests (owner-only) */}
+      {(school as any).isOwner !== false && requests.length > 0 && (
         <div style={{ marginBottom: 20 }}>
           <div
             style={{
@@ -483,6 +485,7 @@ export function SchoolDetail({
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button
+                  type="button"
                   onClick={() => handleApprove(req)}
                   disabled={busy}
                   title="Approve"
@@ -502,6 +505,7 @@ export function SchoolDetail({
                   <Check size={16} />
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleReject(req)}
                   disabled={busy}
                   title="Reject"
@@ -526,52 +530,56 @@ export function SchoolDetail({
         </div>
       )}
 
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-        <button
-          onClick={() => setView({ kind: 'create-class' })}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '12px 16px',
-            borderRadius: 12,
-            border: 0,
-            background: 'linear-gradient(135deg, #6d42d8, #4f7cf6)',
-            color: '#fff',
-            fontWeight: 800,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          <Plus size={16} />
-          Create Class
-        </button>
+      {/* Actions (owner-only) */}
+      {(school as any).isOwner !== false && (
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => setView({ kind: 'create-class' })}
+            style={{
+              flex: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: 0,
+              background: 'linear-gradient(135deg, #6d42d8, #4f7cf6)',
+              color: '#fff',
+              fontWeight: 800,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={16} />
+            Create Class
+          </button>
 
-        <button
-          onClick={openAddStudent}
-          style={{
-            flex: 1,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-            padding: '12px 16px',
-            borderRadius: 12,
-            border: '1.5px solid #6d42d8',
-            background: 'var(--surface, #1a1526)',
-            color: '#a78bfa',
-            fontWeight: 800,
-            fontSize: 13,
-            cursor: 'pointer',
-          }}
-        >
-          <UserPlus size={16} />
-          Add Student
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={openAddStudent}
+            style={{
+              flex: 1,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              padding: '12px 16px',
+              borderRadius: 12,
+              border: '1.5px solid #6d42d8',
+              background: 'var(--surface, #1a1526)',
+              color: '#a78bfa',
+              fontWeight: 800,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            <UserPlus size={16} />
+            Add Student
+          </button>
+        </div>
+      )}
 
       {/* Classes list */}
       <div style={{ marginBottom: 20 }}>
@@ -643,10 +651,21 @@ export function SchoolDetail({
             const joinCode = cls.joinCode || cls.code;
             const accent = cls.coverColor || '#6d42d8';
 
+            const openClass = () => onOpenClass?.(cls._id);
+
             return (
               <div
                 key={cls._id}
-                onClick={() => onOpenClass?.(cls._id)}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${cls.name}`}
+                onClick={openClass}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openClass();
+                  }
+                }}
                 style={{
                   display: 'flex',
                   background: 'var(--surface, #1a1526)',
@@ -655,10 +674,28 @@ export function SchoolDetail({
                   overflow: 'hidden',
                   marginBottom: 10,
                   cursor: onOpenClass ? 'pointer' : 'default',
+                  transition: 'border-color 120ms ease, transform 120ms ease',
+                }}
+                onMouseEnter={(e) => {
+                  if (onOpenClass) {
+                    e.currentTarget.style.borderColor = '#6d42d8';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor =
+                    'var(--border, #2a2538)';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
                 <div style={{ width: 5, background: accent, flexShrink: 0 }} />
-                <div style={{ flex: 1, padding: 16 }}>
+                <div
+                  style={{
+                    flex: 1,
+                    padding: 16,
+                    pointerEvents: 'none',
+                  }}
+                >
                   <div
                     style={{
                       display: 'flex',
@@ -676,6 +713,7 @@ export function SchoolDetail({
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         whiteSpace: 'nowrap',
+                        color: 'var(--ink, #f5f3ff)',
                       }}
                     >
                       {cls.name}
@@ -748,7 +786,7 @@ export function SchoolDetail({
                     }}
                   >
                     <span>{msgCount} messages</span>
-                    <ChevronRight size={16} />
+                    <ChevronRight size={16} color="#a78bfa" />
                   </div>
                 </div>
               </div>
@@ -863,7 +901,6 @@ export function SchoolDetail({
                   onChange={(e) => setNewUsername(e.target.value)}
                   placeholder="auto-generated if empty"
                   disabled={addingStudent}
-                  autoCapitalize="none"
                   style={{
                     width: '100%',
                     padding: '10px 14px',
@@ -947,7 +984,9 @@ export function SchoolDetail({
                               background: selected
                                 ? 'rgba(109, 66, 216, 0.15)'
                                 : 'var(--bg, #0f0a18)',
-                              color: selected ? '#a78bfa' : 'var(--muted, #8a8296)',
+                              color: selected
+                                ? '#a78bfa'
+                                : 'var(--muted, #8a8296)',
                               fontWeight: 700,
                               fontSize: 13,
                               cursor: 'pointer',
