@@ -1,16 +1,21 @@
 import { useState } from 'react';
 import { ArrowLeft, GraduationCap } from 'lucide-react';
-import { createSchool } from '../../services/schools';
-import type { School } from '../../types';
+import { createClassInSchool } from '../../services/schools';
+import type { ClassItem } from '../../types';
 
 interface Props {
+  schoolId: string;
   onCancel: () => void;
-  onCreated: (school: School) => void;
+  onCreated: (cls: ClassItem) => void;
 }
 
-export function CreateSchoolForm({ onCancel, onCreated }: Props) {
+export function CreateClassInSchoolForm({
+  schoolId,
+  onCancel,
+  onCreated,
+}: Props) {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [subject, setSubject] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,20 +23,20 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
     e.preventDefault();
     const trimmedName = name.trim();
     if (!trimmedName || trimmedName.length < 2) {
-      setError('School name must be at least 2 characters.');
+      setError('Class name must be at least 2 characters.');
       return;
     }
     setError(null);
     setBusy(true);
     try {
-      const school = await createSchool({
+      const cls = await createClassInSchool(schoolId, {
         name: trimmedName,
-        description: description.trim() || undefined,
+        subject: subject.trim() || undefined,
       });
-      onCreated(school);
+      onCreated(cls);
     } catch (e: any) {
       setError(
-        e?.response?.data?.message || e?.message || 'Unable to create school.'
+        e?.response?.data?.message || e?.message || 'Unable to create class.'
       );
     } finally {
       setBusy(false);
@@ -91,7 +96,7 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
             letterSpacing: -0.5,
           }}
         >
-          Create School
+          Create Class
         </h1>
       </div>
 
@@ -103,8 +108,8 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
           lineHeight: 1.6,
         }}
       >
-        Give your school a name. You'll be its owner and can add classes and
-        approve students.
+        A unique join code will be generated. Share it with anyone you want to
+        invite — they'll request to join and you approve.
       </p>
 
       <form onSubmit={submit}>
@@ -117,13 +122,13 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
             color: 'var(--ink, #f5f3ff)',
           }}
         >
-          School name *
+          Class name *
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Greenfield Academy"
+          placeholder="e.g. Class 1"
           maxLength={120}
           disabled={busy}
           autoFocus
@@ -150,15 +155,15 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
             color: 'var(--ink, #f5f3ff)',
           }}
         >
-          Description (optional)
+          Subject (optional)
         </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="What is this school about?"
-          maxLength={500}
+        <input
+          type="text"
+          value={subject}
+          onChange={(e) => setSubject(e.target.value)}
+          placeholder="e.g. Mathematics"
+          maxLength={60}
           disabled={busy}
-          rows={4}
           style={{
             width: '100%',
             padding: '12px 16px',
@@ -168,8 +173,6 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
             color: 'var(--ink, #f5f3ff)',
             fontSize: 14,
             boxSizing: 'border-box',
-            resize: 'vertical',
-            fontFamily: 'inherit',
             marginBottom: 16,
             outline: 'none',
           }}
@@ -208,7 +211,7 @@ export function CreateSchoolForm({ onCancel, onCreated }: Props) {
               opacity: busy ? 0.6 : 1,
             }}
           >
-            {busy ? 'Creating…' : 'Create School'}
+            {busy ? 'Creating…' : 'Create Class'}
           </button>
           <button
             type="button"
