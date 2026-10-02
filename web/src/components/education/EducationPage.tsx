@@ -111,6 +111,7 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
         </div>
 
         <button
+          type="button"
           onClick={() => setView({ kind: 'create' })}
           style={{
             display: 'inline-flex',
@@ -162,6 +163,7 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
             {error}
           </div>
           <button
+            type="button"
             onClick={load}
             style={{
               marginTop: 12,
@@ -247,13 +249,26 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
             const owner = typeof sc.owner === 'object' ? sc.owner : null;
             const classCount = sc.classCount ?? 0;
 
+            const openDetail = () =>
+              setView({ kind: 'detail', schoolId: sc._id });
+
             return (
-              <button
+              <div
                 key={sc._id}
-                onClick={() => setView({ kind: 'detail', schoolId: sc._id })}
+                role="button"
+                tabIndex={0}
+                aria-label={`Open ${sc.name}`}
+                onClick={openDetail}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openDetail();
+                  }
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'stretch',
+                  width: '100%',
                   textAlign: 'left',
                   padding: 0,
                   border: '1px solid var(--border, #2a2538)',
@@ -261,8 +276,19 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
                   background: 'var(--surface, #1a1526)',
                   cursor: 'pointer',
                   overflow: 'hidden',
+                  transition: 'border-color 120ms ease, transform 120ms ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = '#6d42d8';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor =
+                    'var(--border, #2a2538)';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
+                {/* Accent strip */}
                 <div
                   style={{
                     width: 6,
@@ -271,7 +297,14 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
                   }}
                 />
 
-                <div style={{ flex: 1, padding: 16 }}>
+                {/* Card body — pointer-events: none so clicks reach the parent */}
+                <div
+                  style={{
+                    flex: 1,
+                    padding: 16,
+                    pointerEvents: 'none',
+                  }}
+                >
                   <div
                     style={{
                       display: 'flex',
@@ -368,10 +401,10 @@ export function EducationPage({ user, onOpenMeeting }: EducationPageProps) {
                       Owner:{' '}
                       {owner?.displayName || owner?.username || 'You'}
                     </span>
-                    <ChevronRight size={16} />
+                    <ChevronRight size={16} color="#a78bfa" />
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
