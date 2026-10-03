@@ -13,7 +13,7 @@ import { WaitingRoom } from './WaitingRoom';
 import { HostApprovalPanel } from './HostApprovalPanel';
 import { getSocket } from '../../services/socket';
 import { SelfView } from './SelfView';
-import type { Meeting, User, Whiteboard } from '../../types';
+import type { Meeting, User } from '../../types';
 
 interface MeetingRoomProps {
   meeting: Meeting;
@@ -35,7 +35,6 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
   const [joinState, setJoinState] = useState<JoinState>('loading');
   const [error, setError] = useState('');
   const [whiteboardOpen, setWhiteboardOpen] = useState(false);
-  const [board, setBoard] = useState<Whiteboard | null>(null);
   const [admitRetry, setAdmitRetry] = useState(0);
 
   const socket = getSocket();
@@ -216,6 +215,7 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
               className="btn"
               style={{ padding: '6px 10px' }}
               onClick={() => toggleWhiteboard(false)}
+              aria-label="Close whiteboard"
             >
               <X size={14} />
             </button>
@@ -223,14 +223,9 @@ export function MeetingRoom({ meeting, user, onLeave }: MeetingRoomProps) {
           <WhiteboardPanel
             meetingId={meeting._id}
             socket={socket}
-            board={board}
-            setBoard={setBoard}
-            canClear={isHost}
           />
-          <p className="muted" style={{ marginTop: 12 }}>
-            {isHost
-              ? 'As the host, you can clear the board for everyone.'
-              : 'Changes are synced in real time.'}
+          <p className="muted" style={{ marginTop: 12, marginBottom: 0 }}>
+            Changes are synced in real time with everyone in the meeting.
           </p>
         </aside>
       )}

@@ -723,14 +723,24 @@ img {
 }
 
 /* ============================================================
-   Whiteboard panel
+   Whiteboard panel — BIGGER on desktop
    ============================================================ */
 .panel {
-  width: 320px;
+  width: 460px;
   background: #181522;
   padding: 18px;
-  overflow: auto;
+  overflow: hidden;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make the whiteboard fill the whole panel height */
+.panel > .whiteboard {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .panel h2 {
@@ -744,6 +754,7 @@ img {
   align-items: center;
   gap: 12px;
   margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .whiteboard {
@@ -751,8 +762,8 @@ img {
   color: var(--ink);
   border-radius: 14px;
   flex: 1;
-  padding: 16px;
-  min-height: 300px;
+  padding: 12px;
+  min-height: 0;
 }
 
 .board {
@@ -1194,8 +1205,23 @@ img {
 }
 
 /* ============================================================
+   Responsive — large desktop (extra panel width)
+   ============================================================ */
+@media (min-width: 1440px) {
+  .panel {
+    width: 620px;
+  }
+}
+
+/* ============================================================
    Responsive — tablet
    ============================================================ */
+@media (max-width: 1100px) {
+  .panel {
+    width: 400px;
+  }
+}
+
 @media (max-width: 900px) {
   .messages-layout {
     grid-template-columns: 1fr;
