@@ -59,9 +59,25 @@ export default function ChatScreen() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Realtime: messages + typing
+  // Realtime: join the conversation room + listen for messages + typing
   useEffect(() => {
     if (!socket || !id) return;
+
+    // Tell the server to add this socket to the conversation room.
+    // Without this, server-side broadcasts (message:new) never reach
+    // this client — that was the cross-platform message bug.
+    const joinRoom = () => {
+      console.log('[chat] conversation:join', id);
+      socket.emit('conversation:join', id);
+    };
+
+    // Join immediately…
+    joinRoom();
+
+    // …and re-join after every reconnect. When the socket drops and
+    // comes back, the server sees a NEW socket that isn't in any room
+    // yet — so we must re-emit on every 'connect'.
+    socket.on('connect', joinRoom);
 
     const onMessage = (m: Message) => {
       if (m.conversation !== id) return;
@@ -92,6 +108,7 @@ export default function ChatScreen() {
     socket.on('typing', onTyping);
 
     return () => {
+      socket.off('connect', joinRoom);
       socket.off('message:new', onMessage);
       socket.off('typing', onTyping);
     };

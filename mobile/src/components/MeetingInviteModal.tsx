@@ -94,14 +94,38 @@ export function MeetingInviteModal({ visible, meeting, onClose }: Props) {
   };
 
   const shareInvite = async () => {
-    try {
-      await Share.share({
-        message: buildMeetingInviteMessage(meeting.title, code),
-        title: meeting.title,
-      });
-    } catch {
-      /* user dismissed */
-    }
+    // Snapshot data BEFORE closing — the modal unmounts on close
+    // so `meeting` becomes undefined immediately after.
+    const titleSnapshot = meeting.title;
+    const messageSnapshot = buildMeetingInviteMessage(titleSnapshot, code);
+
+    // Close the modal FIRST. On Android, calling Share.share() while
+    // a React Native <Modal> is still mounted causes the OS chooser
+    // to crash the app (window token conflict).
+    onClose();
+
+    // Give React a full frame to unmount the Modal before opening
+    // the native share sheet.
+    setTimeout(async () => {
+      try {
+        await Share.share({
+          message: messageSnapshot,
+          title: titleSnapshot,
+        });
+      } catch (err) {
+        console.warn('[share] failed:', err);
+        // Fallback: copy to clipboard so the user can paste manually.
+        try {
+          await Clipboard.setStringAsync(messageSnapshot);
+          Alert.alert(
+            'Copied',
+            'Invitation copied to clipboard — paste it anywhere to share.'
+          );
+        } catch {
+          Alert.alert('MitMe', 'Could not open the share sheet.');
+        }
+      }
+    }, 250);
   };
 
   const enterRoom = () => {
