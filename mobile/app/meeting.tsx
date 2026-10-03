@@ -622,15 +622,44 @@ function MeetingUI({
   // ─── Screen share ───────────────────────────────────────
   const shareScreen = async () => {
     if (!localParticipant || togglingShare) return;
+
+    // iOS screen share requires a Broadcast Upload Extension,
+    // which we haven't added. Android works out of the box on
+    // Android 10+ given the media-projection permission.
+    if (Platform.OS === 'ios') {
+      Alert.alert(
+        'Screen sharing on iPhone',
+        'Screen sharing from iPhone needs an extra iOS extension.\n\nUse a PC or Android for now.'
+      );
+      return;
+    }
+
     setTogglingShare(true);
     try {
+      // Android will show the system "Start recording or casting?"
+      // dialog here. The user must accept it for the stream to start.
       await localParticipant.setScreenShareEnabled(true);
+      console.log('[share] started');
     } catch (err: any) {
       console.warn('[share] failed:', err);
-      Alert.alert(
-        'Screen share unavailable',
-        'Screen sharing from mobile requires the MitMe APK built with the screen-capture module. Try from web.'
-      );
+
+      const codeStr = err?.code || err?.name || '';
+      const msg = String(err?.message || '');
+
+      // Give a targeted hint based on the actual failure.
+      let hint = 'Could not start screen sharing.';
+
+      if (/permission|denied|SecurityException/i.test(msg + codeStr)) {
+        hint =
+          'Android blocked screen recording. Grant the "Screen recording" permission in Settings → Apps → MitMe → Permissions, then try again.';
+      } else if (/cancel/i.test(msg)) {
+        hint = 'You cancelled the screen-share dialog.';
+      } else if (/not.*support/i.test(msg)) {
+        hint =
+          'This device does not support screen capture, or the APK was built without the screen-capture module.';
+      }
+
+      Alert.alert('Screen share', hint);
     } finally {
       setTogglingShare(false);
     }
@@ -943,7 +972,6 @@ function MeetingUI({
           <PenTool size={22} color="#fff" />
         </Pressable>
 
-        {/* ─── Chat button ─────────────────────────────── */}
         <Pressable
           style={[s.control, chatOpen ? s.controlActive : s.controlDefault]}
           onPress={openChat}
