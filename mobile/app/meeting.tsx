@@ -27,6 +27,7 @@ import {
   PhoneOff,
   PenTool,
   MonitorUp,
+  MonitorOff,
   UserCheck,
   Check,
   X,
@@ -565,6 +566,15 @@ function MeetingUI({
     (t) => t.source === Track.Source.ScreenShare
   );
 
+  // Am I the one sharing? Read from LiveKit's tracks so the button
+  // flips back to "Share" even if Android stops the stream from
+  // its notification shade.
+  const localScreenSharing = tracks.some(
+    (t) =>
+      t.source === Track.Source.ScreenShare &&
+      t.participant?.isLocal === true
+  );
+
   const myCamera = tracks.find(
     (t) =>
       isTrackReference(t) &&
@@ -619,13 +629,27 @@ function MeetingUI({
     }
   };
 
-  // ─── Screen share ───────────────────────────────────────
+  // ─── Screen share (toggle) ──────────────────────────────
   const shareScreen = async () => {
     if (!localParticipant || togglingShare) return;
 
-    // iOS screen share requires a Broadcast Upload Extension,
-    // which we haven't added. Android works out of the box on
-    // Android 10+ given the media-projection permission.
+    // If already sharing → stop. Works on both Android and any
+    // future iOS support.
+    if (localScreenSharing) {
+      setTogglingShare(true);
+      try {
+        await localParticipant.setScreenShareEnabled(false);
+        console.log('[share] stopped');
+      } catch (err: any) {
+        console.warn('[share] stop failed:', err);
+        Alert.alert('Screen share', 'Could not stop screen sharing.');
+      } finally {
+        setTogglingShare(false);
+      }
+      return;
+    }
+
+    // Starting a share
     if (Platform.OS === 'ios') {
       Alert.alert(
         'Screen sharing on iPhone',
@@ -646,7 +670,6 @@ function MeetingUI({
       const codeStr = err?.code || err?.name || '';
       const msg = String(err?.message || '');
 
-      // Give a targeted hint based on the actual failure.
       let hint = 'Could not start screen sharing.';
 
       if (/permission|denied|SecurityException/i.test(msg + codeStr)) {
@@ -958,11 +981,22 @@ function MeetingUI({
         </Pressable>
 
         <Pressable
-          style={[s.control, s.controlDefault]}
+          style={[
+            s.control,
+            localScreenSharing ? s.controlActive : s.controlDefault,
+            togglingShare && { opacity: 0.5 },
+          ]}
           onPress={shareScreen}
           disabled={togglingShare}
+          accessibilityLabel={
+            localScreenSharing ? 'Stop screen share' : 'Start screen share'
+          }
         >
-          <MonitorUp size={22} color="#fff" />
+          {localScreenSharing ? (
+            <MonitorOff size={22} color="#fff" />
+          ) : (
+            <MonitorUp size={22} color="#fff" />
+          )}
         </Pressable>
 
         <Pressable
